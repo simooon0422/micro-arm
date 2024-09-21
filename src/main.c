@@ -1,4 +1,7 @@
+#include "esp_log.h"
 #include "pca9685.h"
+
+static const char *TAG = "ServoControl";
 
 uint16_t home_position[] = {90, 135, 30, 90, 0};
 uint16_t current_position[5];
@@ -14,9 +17,21 @@ void move_home()
     {
         current_position[i] = home_position[i];
     }
+
+    ESP_LOGI(TAG, "Homing completed, current position:");
+    for (int i = 0; i < 5; i++)
+    {
+        ESP_LOGI(TAG, "Servo %d: %d", i, current_position[i]);
+    }
 }
 void sample_move()
 {
+    ESP_LOGI(TAG, "Target position:");
+    for (int i = 0; i < 5; i++)
+    {
+        ESP_LOGI(TAG, "Servo %d: %d", i, target_position[i]);
+    }
+
     for (int i = 0; i < 5; i++)
     {
         while (current_position[i] != target_position[i])
@@ -25,17 +40,17 @@ void sample_move()
             {
                 pca9685_set_servo_angle(i, current_position[i] + 1);
                 current_position[i] = current_position[i] + 1;
-                vTaskDelay(pdMS_TO_TICKS(20));
             }
             else if (target_position[i] - current_position[i] < 0)
             {
                 pca9685_set_servo_angle(i, current_position[i] - 1);
                 current_position[i] = current_position[i] - 1;
-                vTaskDelay(pdMS_TO_TICKS(20));
             }
+            vTaskDelay(pdMS_TO_TICKS(20));
         }
     }
 
+    ESP_LOGI(TAG, "Target reached");
     vTaskDelay(pdMS_TO_TICKS(2000));
 
     for (int i = 0; i < 5; i++)
