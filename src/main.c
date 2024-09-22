@@ -1,4 +1,7 @@
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "esp_log.h"
+
 #include "pca9685.h"
 
 static const char *TAG = "ServoControl";
@@ -24,38 +27,43 @@ void move_home()
         ESP_LOGI(TAG, "Servo %d: %d", i, current_position[i]);
     }
 }
-void sample_move()
+
+void servo_control_task(void *pvParameter)
 {
-    ESP_LOGI(TAG, "Target position:");
-    for (int i = 0; i < 5; i++)
+    move_home();
+    while (1)
     {
-        ESP_LOGI(TAG, "Servo %d: %d", i, target_position[i]);
-    }
-
-    for (int i = 0; i < 5; i++)
-    {
-        while (current_position[i] != target_position[i])
+        ESP_LOGI(TAG, "Target position:");
+        for (int i = 0; i < 5; i++)
         {
-            if (target_position[i] - current_position[i] > 0)
-            {
-                pca9685_set_servo_angle(i, current_position[i] + 1);
-                current_position[i] = current_position[i] + 1;
-            }
-            else if (target_position[i] - current_position[i] < 0)
-            {
-                pca9685_set_servo_angle(i, current_position[i] - 1);
-                current_position[i] = current_position[i] - 1;
-            }
-            vTaskDelay(pdMS_TO_TICKS(20));
+            ESP_LOGI(TAG, "Servo %d: %d", i, target_position[i]);
         }
-    }
 
-    ESP_LOGI(TAG, "Target reached");
-    vTaskDelay(pdMS_TO_TICKS(2000));
+        for (int i = 0; i < 5; i++)
+        {
+            while (current_position[i] != target_position[i])
+            {
+                if (target_position[i] - current_position[i] > 0)
+                {
+                    pca9685_set_servo_angle(i, current_position[i] + 1);
+                    current_position[i] = current_position[i] + 1;
+                }
+                else if (target_position[i] - current_position[i] < 0)
+                {
+                    pca9685_set_servo_angle(i, current_position[i] - 1);
+                    current_position[i] = current_position[i] - 1;
+                }
+                vTaskDelay(pdMS_TO_TICKS(20));
+            }
+        }
 
-    for (int i = 0; i < 5; i++)
-    {
-        target_position[i] = home_position[i];
+        ESP_LOGI(TAG, "Target reached");
+        vTaskDelay(pdMS_TO_TICKS(2000));
+
+        for (int i = 0; i < 5; i++)
+        {
+            target_position[i] = home_position[i];
+        }
     }
 }
 
@@ -63,11 +71,6 @@ void app_main(void)
 {
     i2c_master_init(); // Initialize I2C
     pca9685_init();    // Initialize PCA9685
-
-    move_home();
-
-    while (true)
-    {
-        sample_move();
-    }
+    
+    xTaskCreate(&servo_control_task, "blink_led_task", 2048, NULL, 5, NULL);
 }
