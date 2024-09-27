@@ -3,6 +3,7 @@
 #include "esp_log.h"
 
 #include "pca9685.h"
+#include "cd4051_analog.h"
 
 static const char *TAG = "ServoControl";
 uint8_t links_number = 4;

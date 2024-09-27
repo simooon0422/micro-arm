@@ -1,5 +1,9 @@
 {
     "files.associations": {
-        "numbers": "c"
+        "numbers": "c",
+        "cstdint": "cpp",
+        "esp_log.h": "c",
+        "adc_types.h": "c",
+        "gpio.h": "c"
     }
 }
