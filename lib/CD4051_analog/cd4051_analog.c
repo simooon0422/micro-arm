@@ -54,7 +54,7 @@ void select_channel(uint8_t channel)
 {
     for (int i = 0; i < 3; i++)
     {
-        if (channel & (1 << i) == 0)
+        if ((channel & (1 << i)) == 0)
         {
             gpio_set_level(select_pins[i], 0);
         }
@@ -66,7 +66,7 @@ void select_channel(uint8_t channel)
 uint16_t cd4051_read_channel(uint8_t channel)
 {
     int adc_result;
-    
+
     select_channel(channel);
 
     if (adc_oneshot_read(adc1_handle, COM, &adc_result) == ESP_ERR_TIMEOUT)

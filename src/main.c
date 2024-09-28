@@ -5,7 +5,7 @@
 #include "pca9685.h"
 #include "cd4051_analog.h"
 
-static const char *TAG = "ServoControl";
+static const char *SERVO_TAG = "ServoControl";
 uint8_t links_number = 4;
 uint8_t gripper_channel = 4;
 bool position_flag = 0;
@@ -17,13 +17,13 @@ uint16_t target_position[] = {30, 90, 0, 135};
 void gripper_open()
 {
     pca9685_set_servo_angle(gripper_channel, 0);
-    ESP_LOGI(TAG, "Gripper is open");
+    ESP_LOGI(SERVO_TAG, "Gripper is open");
 }
 
 void gripper_close()
 {
     pca9685_set_servo_angle(gripper_channel, 180);
-    ESP_LOGI(TAG, "Gripper is closed");
+    ESP_LOGI(SERVO_TAG, "Gripper is closed");
 }
 
 void move_home()
@@ -37,10 +37,33 @@ void move_home()
         current_position[i] = home_position[i];
     }
 
-    ESP_LOGI(TAG, "Homing completed, current position:");
+    ESP_LOGI(SERVO_TAG, "Homing completed, current position:");
     for (int i = 0; i < links_number; i++)
     {
-        ESP_LOGI(TAG, "Servo %d: %d", i, current_position[i]);
+        ESP_LOGI(SERVO_TAG, "Servo %d: %d", i, current_position[i]);
+    }
+}
+
+void read_potentiometers_task(void *pvParameter)
+{
+    cd4051_init();
+    uint16_t readings[5] = {0, 0, 0, 0, 0};
+
+    while(1)
+    {
+        for (int i = 0; i < 5; i++)
+        {
+            readings[i] = cd4051_read_channel(i);
+        }
+        
+        // readings[0] = cd4051_read_channel(0);
+        // readings[1] = cd4051_read_channel(1);
+        // readings[2] = cd4051_read_channel(2);
+        // readings[3] = cd4051_read_channel(3);
+        // readings[4] = cd4051_read_channel(4);
+        ESP_LOGI(SERVO_TAG, "Readings: %d, %d, %d, %d, %d ", readings[0], readings[1], readings[2], readings[3], readings[4]);
+
+        vTaskDelay(pdMS_TO_TICKS(3000));
     }
 }
 
@@ -53,10 +76,10 @@ void servo_control_task(void *pvParameter)
     {
         if (position_flag == 0)
         {
-            ESP_LOGI(TAG, "Target position:");
+            ESP_LOGI(SERVO_TAG, "Target position:");
             for (int i = 0; i < links_number; i++)
             {
-                ESP_LOGI(TAG, "Servo %d: %d", i, target_position[i]);
+                ESP_LOGI(SERVO_TAG, "Servo %d: %d", i, target_position[i]);
             }
 
             int move_step = 0;
@@ -80,7 +103,7 @@ void servo_control_task(void *pvParameter)
                     break;
                 }     
                 position_flag = 1;         
-                ESP_LOGI(TAG, "Target reached");
+                ESP_LOGI(SERVO_TAG, "Target reached");
             }
         }
 
@@ -98,8 +121,9 @@ void servo_control_task(void *pvParameter)
 
 void app_main(void)
 {
-    i2c_master_init(); // Initialize I2C
-    pca9685_init();    // Initialize PCA9685
+    // i2c_master_init(); // Initialize I2C
+    // pca9685_init();    // Initialize PCA9685
 
-    xTaskCreate(&servo_control_task, "blink_led_task", 2048, NULL, 5, NULL);
+    // xTaskCreate(&servo_control_task, "servo_control_task", 2048, NULL, 5, NULL);
+    xTaskCreate(&read_potentiometers_task, "read_potentiometers_task", 4096, NULL, 5, NULL);
 }
