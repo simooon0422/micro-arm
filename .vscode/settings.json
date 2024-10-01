@@ -4,6 +4,9 @@
         "cstdint": "cpp",
         "esp_log.h": "c",
         "adc_types.h": "c",
-        "gpio.h": "c"
+        "gpio.h": "c",
+        "test_potentiometers_task": "c",
+        "semphr.h": "c",
+        "freertos.h": "c"
     }
 }
