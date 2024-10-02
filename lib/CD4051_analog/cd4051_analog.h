@@ -6,19 +6,28 @@
 /**
  * @brief Initialize ADC for multiplexer.
  */
-void adc_init();
+void adc_init(void);
 
 /**
  * @brief Initialize CD4051 multiplexer.
- * @param com_direction Mode of multiplexer (writing - GPIO_MODE_OUTPUT, reading - GPIO_MODE_INPUT)
+ * @param com_direction Mode of multiplexer (writing - GPIO_MODE_OUTPUT, reading - GPIO_MODE_INPUT).
  */
-void cd4051_init();
+void cd4051_init(void);
+
+/**
+ * @brief Set logic for one of the SELECT pins.
+ * @param channel Channel (0-7).
+ * @param current_select SELECT pin to set logic for (0 - SELECT A, 1 - SELECT B, 2 - SELECT C).
+ * @return Logic level for pin (0 or 1).
+ */
+bool set_select_logic(uint8_t channel, uint8_t current_select);
 
 /**
  * @brief Select current multiplexer channel.
  * @param channel Channel (0-7).
+ * @return Channel that has been set.
  */
-void select_channel(uint8_t channel);
+uint8_t select_channel(uint8_t channel);
 
 /**
  * @brief Turn on multiplexer.
@@ -35,4 +44,4 @@ void cd4051_deactivate(void);
  * @param channel Channel to read from.
  * @return Measured analog value.
  */
-uint16_t cd4051_read_channel(uint8_t channel);
+int cd4051_read_channel(uint8_t channel);

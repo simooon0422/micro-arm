@@ -10,6 +10,7 @@
 #define SERVO_MIN_US 500  // Minimum pulse width in µs
 #define SERVO_MAX_US 2600 // Maximum pulse width in µs
 #define PWM_FREQ 50       // PWM frequency for SG90 servo
+#define MAX_ANGLE 180     // Maximum servo angle
 
 void i2c_master_init(void)
 {
@@ -64,7 +65,11 @@ void pca9685_set_pwm(uint8_t channel, uint16_t on, uint16_t off)
 
 uint16_t servo_angle_to_pwm(uint16_t angle)
 {
-    uint16_t pulse_width = SERVO_MIN_US + ((SERVO_MAX_US - SERVO_MIN_US) * angle) / 180;
+    if (angle > MAX_ANGLE)
+    {
+        angle = MAX_ANGLE;
+    }
+    uint16_t pulse_width = SERVO_MIN_US + ((SERVO_MAX_US - SERVO_MIN_US) * angle) / MAX_ANGLE;
     return (uint16_t)(pulse_width / 4.88); // Calculate number of PWM steps
 }
 

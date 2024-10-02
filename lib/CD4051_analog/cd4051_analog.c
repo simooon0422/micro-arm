@@ -13,7 +13,7 @@ static const char *ADC_TAG = "ADC1";
 adc_oneshot_unit_handle_t adc1_handle;
 gpio_num_t select_pins[] = {SELECT_A, SELECT_B, SELECT_C};
 
-void adc_init()
+void adc_init(void)
 {
     adc_oneshot_unit_init_cfg_t init_config = {
         .unit_id = ADC_UNIT_1,
@@ -25,7 +25,7 @@ void adc_init()
         .atten = ADC_ATTEN};
     adc_oneshot_config_channel(adc1_handle, COM, &config);
 }
-void cd4051_init()
+void cd4051_init(void)
 {
     for (int i = 0; i < 3; i++)
     {
@@ -40,43 +40,58 @@ void cd4051_init()
     cd4051_activate();
 }
 
-void cd4051_activate()
+void cd4051_activate(void)
 {
     gpio_set_level(INHIBIT, 0);
 }
 
-void cd4051_deactivate()
+void cd4051_deactivate(void)
 {
     gpio_set_level(INHIBIT, 1);
 }
 
-void select_channel(uint8_t channel)
+bool set_select_logic(uint8_t channel, uint8_t current_select)
 {
-    for (int i = 0; i < 3; i++)
+    if ((channel & (1 << current_select)) == 0)
     {
-        if ((channel & (1 << i)) == 0)
-        {
-            gpio_set_level(select_pins[i], 0);
-        }
-        else
-            gpio_set_level(select_pins[i], 1);
+        return 0;
     }
+    else
+        return 1;
 }
 
-uint16_t cd4051_read_channel(uint8_t channel)
+uint8_t select_channel(uint8_t channel)
+{
+    uint8_t channel_set = 0;
+    for (int i = 0; i < 3; i++)
+    {   
+        bool select_logic = set_select_logic(channel, i);
+        gpio_set_level(select_pins[i], select_logic);
+        channel_set = channel_set | (select_logic << i);
+    } 
+    return channel_set;
+}
+
+int cd4051_read_channel(uint8_t channel)
 {
     int adc_result;
-
-    select_channel(channel);
-
-    if (adc_oneshot_read(adc1_handle, COM, &adc_result) == ESP_ERR_TIMEOUT)
+    if (channel < 8)
     {
-        ESP_LOGE(ADC_TAG, "ADC TIMEOUT");
-    }
-    else if (adc_oneshot_read(adc1_handle, COM, &adc_result) == ESP_ERR_INVALID_ARG)
-    {
-        ESP_LOGE(ADC_TAG, "Invalid arguments");
-    }
+        select_channel(channel);
 
-    return adc_result;
+        if (adc_oneshot_read(adc1_handle, COM, &adc_result) == ESP_ERR_TIMEOUT)
+        {
+            ESP_LOGE(ADC_TAG, "ADC TIMEOUT");
+            return -1;
+        }
+        else if (adc_oneshot_read(adc1_handle, COM, &adc_result) == ESP_ERR_INVALID_ARG)
+        {
+            ESP_LOGE(ADC_TAG, "Invalid arguments");
+            return -2;
+        }
+
+        return adc_result;
+    }
+    else
+        return -3;
 }
