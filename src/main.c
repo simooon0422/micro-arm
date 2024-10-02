@@ -5,14 +5,22 @@ uint8_t links_number = 4;
 uint8_t gripper_channel = 4;
 bool position_flag = 0;
 
-uint16_t home_position[] = {90, 135, 15, 30};
-uint16_t current_position[] = {90, 135, 30, 90};
-uint16_t target_position[] = {90, 135, 30, 90};
+uint8_t home_position[] = {90, 135, 15, 30};
+uint8_t current_position[] = {90, 135, 30, 90};
+uint8_t target_position[] = {90, 135, 30, 90};
 
 SemaphoreHandle_t xMutexTargetPosition = NULL;
 
-uint16_t map(uint16_t x, uint16_t in_min, uint16_t in_max, uint16_t out_min, uint16_t out_max)
+int map(int x, int in_min, int in_max, int out_min, int out_max)
 {
+    if (x < in_min)
+    {
+        x = in_min;
+    }
+    else if (x > in_max)
+    {
+        x = in_max;
+    }
     return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
@@ -43,11 +51,11 @@ void move_home()
     position_flag = 1;
 }
 
-bool check_position()
+bool check_position(uint8_t current[], uint8_t target[], uint8_t n)
 {
-    for (int i = 0; i < links_number; i++)
+    for (int i = 0; i < n; i++)
     {
-        if (current_position[i] != target_position[i])
+        if (current[i] != target[i])
         {
             return false;
         }
@@ -65,7 +73,7 @@ void read_potentiometers_task(void *pvParameter)
             {
                 target_position[i] = 10 * map(cd4051_read_channel(i), 0, 4095, 0, 18);
             }
-            if ((position_flag == 1) & (check_position() == false))
+            if ((position_flag == 1) & (check_position(current_position, target_position, links_number) == false))
             {
                 position_flag = 0;
             }
@@ -105,7 +113,7 @@ void servo_control_task(void *pvParameter)
                     }
                 }
 
-                if (check_position() == true)
+                if (check_position(current_position, target_position, links_number) == true)
                 {
                     position_flag = 1;
                     ESP_LOGI(SERVO_TAG, "Target reached");

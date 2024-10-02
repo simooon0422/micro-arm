@@ -15,7 +15,7 @@
  * @param out_max Maximum output number.
  * @return Mapped value
  */
-uint16_t map(uint16_t , uint16_t in_min, uint16_t in_max, uint16_t out_min, uint16_t out_max);
+int map(int , int in_min, int in_max, int out_min, int out_max);
 
 /**
  * @brief Open gripper.
@@ -36,7 +36,7 @@ void move_home();
  * @brief Check if current servo positions matches target positions
  * @return Position status (True - current position matches target position, False - current position doesn't match target position)
  */
-bool check_position();
+bool check_position(uint8_t current[], uint8_t target[], uint8_t n);
 
 /**
  * @brief Task for reading values from control potentiometers
