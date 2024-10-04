@@ -39,6 +39,17 @@ void move_home();
 bool check_position(uint8_t current[], uint8_t target[], uint8_t n);
 
 /**
+ * @brief Get value of step for servo movement
+ * @return Step value
+ */
+int get_step(uint8_t current, uint8_t target);
+
+/**
+ * @brief Move servo by step value
+ */
+void move_step(uint8_t link);
+
+/**
  * @brief Task for reading values from control potentiometers
  */
 void read_potentiometers_task(void *pvParameter);
@@ -47,8 +58,3 @@ void read_potentiometers_task(void *pvParameter);
  * @brief Task for controlling servo movement
  */
 void servo_control_task(void *pvParameter);
-
-/**
- * @brief Main app function
- */
-void app_main(void);

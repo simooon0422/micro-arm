@@ -63,6 +63,23 @@ bool check_position(uint8_t current[], uint8_t target[], uint8_t n)
     return true;
 }
 
+int get_step(uint8_t current, uint8_t target)
+{
+    if (current != target)
+    {
+        return ((target - current) / abs(target - current));
+    }
+    else
+        return 0;
+}
+
+void move_step(uint8_t link)
+{
+    int step = get_step(current_position[link], target_position[link]);
+    pca9685_set_servo_angle(link, current_position[link] + step);
+    current_position[link] = current_position[link] + step;
+}
+
 void read_potentiometers_task(void *pvParameter)
 {
     while (1)
@@ -86,9 +103,9 @@ void read_potentiometers_task(void *pvParameter)
 
 void servo_control_task(void *pvParameter)
 {
-    move_home();
+    move_home(); // Move all servos to home position
     vTaskDelay(pdMS_TO_TICKS(2000));
-
+    
     while (1)
     {
         if (position_flag == 0)
@@ -101,16 +118,9 @@ void servo_control_task(void *pvParameter)
                     ESP_LOGI(SERVO_TAG, "Servo %d: %d", i, target_position[i]);
                 }
 
-                int move_step = 0;
-
                 for (int i = 0; i < links_number; i++)
                 {
-                    if (current_position[i] != target_position[i])
-                    {
-                        move_step = (target_position[i] - current_position[i]) / abs(target_position[i] - current_position[i]);
-                        pca9685_set_servo_angle(i, current_position[i] + move_step);
-                        current_position[i] = current_position[i] + move_step;
-                    }
+                    move_step(i);
                 }
 
                 if (check_position(current_position, target_position, links_number) == true)

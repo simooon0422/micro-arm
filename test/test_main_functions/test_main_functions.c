@@ -58,7 +58,7 @@ void run_test_group_map(void)
 // TEST MAP GROUP END
 
 
-// TEST CHECK_POSITION GROUP BEGIN
+// TEST CHECK POSITION GROUP BEGIN
 void test_check_position_same_position_returns_true(void)
 {
     uint8_t links_n = 4;
@@ -83,7 +83,34 @@ void run_test_group_check_position(void)
     RUN_TEST(test_check_position_same_position_returns_true);
     RUN_TEST(test_check_position_different_position_returns_false);
 }
-// TEST CHECK_POSITION GROUP END
+// TEST CHECK POSITION GROUP END
+
+// TEST GET STEP GROUP BEGIN
+void test_get_step_return_1(void)
+{
+    TEST_ASSERT_EQUAL(1, get_step(90, 180));
+}
+
+void test_get_step_return_0(void)
+{
+    TEST_ASSERT_EQUAL(0, get_step(90, 90));
+}
+
+void test_get_step_return_minus_1(void)
+{
+    TEST_ASSERT_EQUAL(-1, get_step(90, 0));
+}
+
+/**
+ * @brief Run all tests for get_step() function
+ */
+void run_test_group_get_step(void)
+{
+    RUN_TEST(test_get_step_return_1);
+    RUN_TEST(test_get_step_return_0);
+    RUN_TEST(test_get_step_return_minus_1);
+}
+// TEST GET STEP GROUP END
 
 int runUnityTests(void)
 {
@@ -91,6 +118,7 @@ int runUnityTests(void)
     UNITY_BEGIN();
     run_test_group_map();
     run_test_group_check_position();
+    run_test_group_get_step();
     return UNITY_END();
 }
 
