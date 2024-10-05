@@ -58,3 +58,8 @@ void read_potentiometers_task(void *pvParameter);
  * @brief Task for controlling servo movement
  */
 void servo_control_task(void *pvParameter);
+
+/**
+ * @brief Task for controlling position flag
+ */
+void position_control_task(void *pvParameter);
