@@ -2,6 +2,7 @@
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "esp_log.h"
+#include "driver/gpio.h"
 
 #include "pca9685.h"
 #include "cd4051_analog.h"
