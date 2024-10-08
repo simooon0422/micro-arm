@@ -9,6 +9,7 @@
         "semphr.h": "c",
         "freertos.h": "c",
         "cd4051_analog.h": "c",
-        "task.h": "c"
+        "task.h": "c",
+        "freertosconfig.h": "c"
     }
 }

@@ -4,6 +4,8 @@
 #include "esp_log.h"
 #include "driver/gpio.h"
 
+#include <string.h>
+
 #include "pca9685.h"
 #include "cd4051_analog.h"
 
