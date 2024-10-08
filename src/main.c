@@ -4,7 +4,8 @@
 #define MODE_BUTTON_PIN GPIO_NUM_12    // Mode control button pin
 #define LINKS_NUMBER 4                 // Number of arm links
 #define GRIPPER_CHANNEL 4              // PCA9685 channel for gripper
-#define MODES_NUMBER 2                 // Number of arm modes of working
+#define MODES_NUMBER 3                 // Number of arm modes of working
+#define SEQUENCE_STEPS 7               // Number of steps for sequence in automatic mode
 
 static const char *SERVO_TAG = "ServoControl";
 static const char *POT_TAG = "Potentiometers";
@@ -12,12 +13,22 @@ static const char *GRIPPER_TAG = "Gripper";
 
 bool movement_flag = 0; // 0 - no movement required, 1 - movement required
 bool gripper_flag = 0;  // 0 - gripper open, 1 - gripper closed
-uint8_t mode_flag = 0;  // 0 - Home mode, 1 - Manual mode
+uint8_t mode_flag = 0;  // 0 - Home mode, 1 - Manual mode, 2 - Automatic mode
 
 uint8_t home_position[LINKS_NUMBER] = {90, 135, 15, 30};    // Angle values of servo home positions
 uint8_t current_position[LINKS_NUMBER] = {90, 135, 15, 30}; // Angle values of servo current positions
 uint8_t target_position[LINKS_NUMBER] = {90, 135, 15, 30};  // Angle values of servo target positions
 uint8_t pot_readings[LINKS_NUMBER];                         // Readings from potentiometers mapped to angle values
+
+uint8_t work_sequence[SEQUENCE_STEPS][LINKS_NUMBER+1] = {
+    {90, 135, 30, 30, 0},
+    {60, 135, 30, 30, 0},
+    {60, 180, 0, 45, 0},
+    {60, 180, 0, 45, 1},
+    {60, 135, 30, 30, 1},
+    {90, 135, 30, 30, 1},
+    {90, 135, 30, 30, 0},
+};
 
 SemaphoreHandle_t xMutexTargetPosition = NULL;
 
@@ -217,6 +228,47 @@ void mode_control_task(void *pvParameter)
     }
 }
 
+void automatic_sequence_task(void *pvParameter)
+{
+    while (1)
+    {
+        if (mode_flag == 2)
+        {
+            for (int i = 0; i < SEQUENCE_STEPS; i++)
+            {
+                if (xSemaphoreTake(xMutexTargetPosition, portMAX_DELAY) == pdTRUE)
+                {
+                    for (int j = 0; j < LINKS_NUMBER; j++)
+                    {
+                        target_position[j] = work_sequence[i][j];
+                    }
+                    if (mode_flag != 2)
+                    {
+                        memcpy(target_position, home_position, sizeof(home_position));
+                        xSemaphoreGive(xMutexTargetPosition);
+                        break;
+                    }
+                    xSemaphoreGive(xMutexTargetPosition);
+                }
+
+                if (work_sequence[i][LINKS_NUMBER] == 1)
+                {
+                    gripper_close();
+                }
+                else
+                    gripper_open();
+
+                vTaskDelay(100);
+                while (movement_flag == 1)
+                {
+                }
+            }
+        }
+        else
+            vTaskDelay(200);
+    }
+}
+
 #ifndef TESTING_ENVIRONMENT
 void app_main(void)
 {
@@ -232,5 +284,6 @@ void app_main(void)
     xTaskCreate(&position_control_task, "position_control_task", 2048, NULL, 4, NULL);
     xTaskCreate(&gripper_control_task, "gripper_control_task", 2048, NULL, 1, NULL);
     xTaskCreate(&mode_control_task, "mode_control_task", 2048, NULL, 4, NULL);
+    xTaskCreate(&automatic_sequence_task, "automatic_sequence_task", 2048, NULL, 3, NULL);
 }
 #endif
