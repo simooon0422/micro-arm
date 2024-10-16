@@ -6,7 +6,7 @@
 #define MODES_NUMBER 3                 // Number of arm modes of working
 #define MAX_PATH_STEPS 10              // Maximum number of steps in automatic mode path
 
-#define WRITE_PATH_STEPS 7 // Number of steps for sequence in automatic mode to write in EEPROM
+#define WRITE_PATH_STEPS 3 // Number of steps for sequence in automatic mode to write in EEPROM
 
 static const char *SERVO_TAG = "ServoControl";
 static const char *POT_TAG = "Potentiometers";
@@ -25,14 +25,9 @@ uint8_t pot_readings[LINKS_NUMBER];                         // Readings from pot
 uint8_t work_path[MAX_PATH_STEPS][LINKS_NUMBER + 1] = {0};
 
 uint8_t write_path[WRITE_PATH_STEPS][LINKS_NUMBER + 1] = {
-    {90, 135, 30, 30, 0},
-    {60, 135, 30, 30, 0},
-    {60, 180, 0, 45, 0},
-    {60, 180, 0, 45, 1},
-    {60, 135, 30, 30, 1},
-    {90, 135, 30, 30, 1},
-    {90, 135, 30, 30, 0},
-};
+    {90, 135, 15, 30},
+    {0, 135, 15, 30},
+    {90, 135, 15, 30}};
 
 SemaphoreHandle_t xMutexTargetPosition = NULL;
 
@@ -172,6 +167,8 @@ void servo_control_task(void *pvParameter)
                 vTaskDelay(pdMS_TO_TICKS(20));
             }
         }
+        else
+            vTaskDelay(pdMS_TO_TICKS(50));
     }
 }
 
@@ -263,7 +260,7 @@ void automatic_sequence_task(void *pvParameter)
     {
         if (mode_flag == 2)
         {
-            for (int i = 0; i < MAX_PATH_STEPS; i++)
+            for (int i = 0; i < path_steps; i++)
             {
                 if (xSemaphoreTake(xMutexTargetPosition, portMAX_DELAY) == pdTRUE)
                 {
@@ -301,13 +298,16 @@ void automatic_sequence_task(void *pvParameter)
 #ifndef TESTING_ENVIRONMENT
 void app_main(void)
 {
-    xMutexTargetPosition = xSemaphoreCreateMutex();
-
+    eeprom_init();     // Initialize EEPROM
     i2c_master_init(); // Initialize I2C
     pca9685_init();    // Initialize PCA9685
     cd4051_init();     // Initialize CD4051 multiplexer
     buttons_init();    // Initialize buttons
-    eeprom_init();     // Initialize EEPROM
+
+    write_auto_path(write_path, WRITE_PATH_STEPS); // Write automatic path to EEPROM
+    read_auto_path(work_path, &path_steps);        // Read automatic path from EEPROM
+
+    xMutexTargetPosition = xSemaphoreCreateMutex();
 
     xTaskCreate(&servo_control_task, "servo_control_task", 2048, NULL, 2, NULL);
     xTaskCreate(&read_potentiometers_task, "read_potentiometers_task", 4096, NULL, 3, NULL);
