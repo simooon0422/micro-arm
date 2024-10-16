@@ -49,7 +49,7 @@ esp_err_t eeprom_write_byte(uint8_t address, uint8_t data) {
     if (err != ESP_OK) {
         ESP_LOGE(EEPROM_TAG, "Failed to write byte to EEPROM: %s", esp_err_to_name(err));
     }
-    vTaskDelay(pdMS_TO_TICKS(10));
+    vTaskDelay(pdMS_TO_TICKS(20));
 
     return err;
 }

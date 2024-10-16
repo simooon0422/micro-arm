@@ -1,5 +1,4 @@
 #include <unity.h>
-#include "freertos/FreeRTOS.h"
 #include "main.h"
 
 void setUp(void)
@@ -57,12 +56,11 @@ void run_test_group_map(void)
 }
 // TEST MAP GROUP END
 
-
 // TEST CHECK POSITION GROUP BEGIN
 void test_check_position_same_position_returns_true(void)
 {
     uint8_t links_n = 4;
-    uint8_t curr_pos[] ={90, 135, 30, 90};
+    uint8_t curr_pos[] = {90, 135, 30, 90};
     uint8_t targ_pos[] = {90, 135, 30, 90};
     TEST_ASSERT_TRUE(check_position(curr_pos, targ_pos, links_n));
 }
@@ -70,7 +68,7 @@ void test_check_position_same_position_returns_true(void)
 void test_check_position_different_position_returns_false(void)
 {
     uint8_t links_n = 4;
-    uint8_t curr_pos[] ={90, 135, 30, 90};
+    uint8_t curr_pos[] = {90, 135, 30, 90};
     uint8_t targ_pos[] = {0, 100, 60, 180};
     TEST_ASSERT_FALSE(check_position(curr_pos, targ_pos, links_n));
 }
@@ -112,6 +110,45 @@ void run_test_group_get_step(void)
 }
 // TEST GET STEP GROUP END
 
+// TEST EEPROM SEQUENCE GROUP BEGIN
+void test_eeprom_init_ok(void)
+{
+    esp_err_t ret = eeprom_init();
+    TEST_ASSERT_EQUAL(ESP_OK, ret);
+}
+
+void test_eeprom_sequence_read_equals_write(void)
+{
+    vTaskDelay(pdMS_TO_TICKS(500));
+    uint8_t test_steps = 3;
+    uint8_t test_rcv_steps;
+    uint8_t test_write_sequence[3][LINKS_NUMBER + 1] = {
+        {90, 135, 30, 30, 0},
+        {60, 100, 60, 0, 1},
+        {60, 180, 0, 45, 0}};
+
+    uint8_t test_read_sequence[3][LINKS_NUMBER + 1] = {0};
+
+    write_auto_path(test_write_sequence, test_steps);
+    read_auto_path(test_read_sequence, &test_rcv_steps);
+
+    TEST_ASSERT_EQUAL(test_steps, test_rcv_steps);
+    for (int i = 0; i < 3; i++)
+    {
+        TEST_ASSERT_EQUAL_UINT8_ARRAY(test_write_sequence[i], test_read_sequence[i], LINKS_NUMBER + 1);
+    }
+}
+
+/**
+ * @brief Run all tests for writing/reading EEPROM sequence
+ */
+void run_test_group_eeprom_sequence(void)
+{
+    RUN_TEST(test_eeprom_init_ok);
+    RUN_TEST(test_eeprom_sequence_read_equals_write);
+}
+// TEST EEPROM SEQUENCE GROUP END
+
 int runUnityTests(void)
 {
     vTaskDelay(pdMS_TO_TICKS(2500));
@@ -119,6 +156,7 @@ int runUnityTests(void)
     run_test_group_map();
     run_test_group_check_position();
     run_test_group_get_step();
+    run_test_group_eeprom_sequence();
     return UNITY_END();
 }
 

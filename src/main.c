@@ -2,10 +2,11 @@
 
 #define GRIPPER_BUTTON_PIN GPIO_NUM_13 // Gripper control button pin
 #define MODE_BUTTON_PIN GPIO_NUM_12    // Mode control button pin
-#define LINKS_NUMBER 4                 // Number of arm links
 #define GRIPPER_CHANNEL 4              // PCA9685 channel for gripper
 #define MODES_NUMBER 3                 // Number of arm modes of working
-#define SEQUENCE_STEPS 7               // Number of steps for sequence in automatic mode
+#define MAX_PATH_STEPS 10              // Maximum number of steps in automatic mode path
+
+#define WRITE_PATH_STEPS 7 // Number of steps for sequence in automatic mode to write in EEPROM
 
 static const char *SERVO_TAG = "ServoControl";
 static const char *POT_TAG = "Potentiometers";
@@ -14,13 +15,16 @@ static const char *GRIPPER_TAG = "Gripper";
 bool movement_flag = 0; // 0 - no movement required, 1 - movement required
 bool gripper_flag = 0;  // 0 - gripper open, 1 - gripper closed
 uint8_t mode_flag = 0;  // 0 - Home mode, 1 - Manual mode, 2 - Automatic mode
+uint8_t path_steps = 0; // Number of path steps for automatic mode, default 0
 
 uint8_t home_position[LINKS_NUMBER] = {90, 135, 15, 30};    // Angle values of servo home positions
 uint8_t current_position[LINKS_NUMBER] = {90, 135, 15, 30}; // Angle values of servo current positions
 uint8_t target_position[LINKS_NUMBER] = {90, 135, 15, 30};  // Angle values of servo target positions
 uint8_t pot_readings[LINKS_NUMBER];                         // Readings from potentiometers mapped to angle values
 
-uint8_t work_sequence[SEQUENCE_STEPS][LINKS_NUMBER+1] = {
+uint8_t work_path[MAX_PATH_STEPS][LINKS_NUMBER + 1] = {0};
+
+uint8_t write_path[WRITE_PATH_STEPS][LINKS_NUMBER + 1] = {
     {90, 135, 30, 30, 0},
     {60, 135, 30, 30, 0},
     {60, 180, 0, 45, 0},
@@ -115,6 +119,31 @@ void move_step(uint8_t link)
     int step = get_step(current_position[link], target_position[link]);
     pca9685_set_servo_angle(link, current_position[link] + step);
     current_position[link] = current_position[link] + step;
+}
+
+void write_auto_path(uint8_t arr[][LINKS_NUMBER + 1], uint8_t steps_n)
+{
+    eeprom_write_byte(PATH_STEPS_ADDRESS, steps_n);
+    for (int i = 0; i < steps_n; i++)
+    {
+        for (int j = 0; j < LINKS_NUMBER + 1; j++)
+        {
+            eeprom_write_byte(j + (i * (LINKS_NUMBER + 1)), arr[i][j]);
+        }
+    }
+}
+
+void read_auto_path(uint8_t arr[][LINKS_NUMBER + 1], uint8_t *steps_n)
+{
+    eeprom_read_byte(PATH_STEPS_ADDRESS, steps_n);
+    // ESP_LOGI(SERVO_TAG, "Steps: %d", steps_n);
+    for (int i = 0; i < *steps_n; i++)
+    {
+        for (int j = 0; j < LINKS_NUMBER + 1; j++)
+        {
+            eeprom_read_byte(j + (i * (LINKS_NUMBER + 1)), &arr[i][j]);
+        }
+    }
 }
 
 void servo_control_task(void *pvParameter)
@@ -234,13 +263,13 @@ void automatic_sequence_task(void *pvParameter)
     {
         if (mode_flag == 2)
         {
-            for (int i = 0; i < SEQUENCE_STEPS; i++)
+            for (int i = 0; i < MAX_PATH_STEPS; i++)
             {
                 if (xSemaphoreTake(xMutexTargetPosition, portMAX_DELAY) == pdTRUE)
                 {
                     for (int j = 0; j < LINKS_NUMBER; j++)
                     {
-                        target_position[j] = work_sequence[i][j];
+                        target_position[j] = work_path[i][j];
                     }
                     if (mode_flag != 2)
                     {
@@ -251,7 +280,7 @@ void automatic_sequence_task(void *pvParameter)
                     xSemaphoreGive(xMutexTargetPosition);
                 }
 
-                if (work_sequence[i][LINKS_NUMBER] == 1)
+                if (work_path[i][LINKS_NUMBER] == 1)
                 {
                     gripper_close();
                 }
@@ -278,6 +307,7 @@ void app_main(void)
     pca9685_init();    // Initialize PCA9685
     cd4051_init();     // Initialize CD4051 multiplexer
     buttons_init();    // Initialize buttons
+    eeprom_init();     // Initialize EEPROM
 
     xTaskCreate(&servo_control_task, "servo_control_task", 2048, NULL, 2, NULL);
     xTaskCreate(&read_potentiometers_task, "read_potentiometers_task", 4096, NULL, 3, NULL);
