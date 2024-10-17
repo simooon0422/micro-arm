@@ -2,16 +2,6 @@
 #include "freertos/FreeRTOS.h"
 #include "cd4051_analog.h"
 
-void setUp(void)
-{
-    // set stuff up here
-}
-
-void tearDown(void)
-{
-    // clean stuff up here
-}
-
 // TEST GROUP CD4051 READ CHANNEL BEGIN
 void test_cd4051_read_channel_in_range(void)
 {
@@ -19,7 +9,7 @@ void test_cd4051_read_channel_in_range(void)
     for (int i = 0; i < 8; i++)
     {
         TEST_ASSERT_INT_WITHIN(2048, 2048, cd4051_read_channel(i));
-    }  
+    }
 }
 
 void test_cd4051_read_channel_wrong_channel(void)
@@ -38,16 +28,15 @@ void run_test_group_cd4051_read_channel(void)
 }
 // TEST GROUP CD4051 READ CHANNEL END
 
-
 // TEST GROUP SET SELECT LOGIC BEGIN
 void test_set_select_logic_returns_0(void)
 {
-    TEST_ASSERT_EQUAL(0, set_select_logic(1, 2));  
+    TEST_ASSERT_EQUAL(0, set_select_logic(1, 2));
 }
 
 void test_set_select_logic_returns_1(void)
 {
-    TEST_ASSERT_EQUAL(1, set_select_logic(5, 0));  
+    TEST_ASSERT_EQUAL(1, set_select_logic(5, 0));
 }
 
 /**
@@ -59,7 +48,6 @@ void run_test_group_set_select_logic(void)
     RUN_TEST(test_set_select_logic_returns_1);
 }
 // TEST GROUP SET SELECT LOGIC END
-
 
 // TEST GROUP SELECT CHANNEL LOGIC BEGIN
 void test_select_channel_correct_channel(void)

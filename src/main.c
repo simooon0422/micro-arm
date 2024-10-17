@@ -1,12 +1,12 @@
 #include "main.h"
 
+// #define WRITE_EEPROM_ON_START // Uncomment if you want to modify automatic path in EEPROM on start
+
 #define GRIPPER_BUTTON_PIN GPIO_NUM_13 // Gripper control button pin
 #define MODE_BUTTON_PIN GPIO_NUM_12    // Mode control button pin
 #define GRIPPER_CHANNEL 4              // PCA9685 channel for gripper
 #define MODES_NUMBER 3                 // Number of arm modes of working
 #define MAX_PATH_STEPS 10              // Maximum number of steps in automatic mode path
-
-#define WRITE_PATH_STEPS 3 // Number of steps for sequence in automatic mode to write in EEPROM
 
 static const char *SERVO_TAG = "ServoControl";
 static const char *POT_TAG = "Potentiometers";
@@ -17,17 +17,20 @@ bool gripper_flag = 0;  // 0 - gripper open, 1 - gripper closed
 uint8_t mode_flag = 0;  // 0 - Home mode, 1 - Manual mode, 2 - Automatic mode
 uint8_t path_steps = 0; // Number of path steps for automatic mode, default 0
 
-uint8_t home_position[LINKS_NUMBER] = {90, 135, 15, 30};    // Angle values of servo home positions
-uint8_t current_position[LINKS_NUMBER] = {90, 135, 15, 30}; // Angle values of servo current positions
-uint8_t target_position[LINKS_NUMBER] = {90, 135, 15, 30};  // Angle values of servo target positions
+uint8_t home_position[LINKS_NUMBER] = {90, 135, 30, 30};    // Angle values of servo home positions
+uint8_t current_position[LINKS_NUMBER] = {90, 135, 30, 30}; // Angle values of servo current positions
+uint8_t target_position[LINKS_NUMBER] = {90, 135, 30, 30};  // Angle values of servo target positions
 uint8_t pot_readings[LINKS_NUMBER];                         // Readings from potentiometers mapped to angle values
 
 uint8_t work_path[MAX_PATH_STEPS][LINKS_NUMBER + 1] = {0};
 
+#ifdef WRITE_EEPROM_ON_START
+#define WRITE_PATH_STEPS 3 // Number of steps for sequence in automatic mode to write in EEPROM
 uint8_t write_path[WRITE_PATH_STEPS][LINKS_NUMBER + 1] = {
-    {90, 135, 15, 30},
-    {0, 135, 15, 30},
-    {90, 135, 15, 30}};
+    {90, 135, 30, 30},
+    {0, 135, 30, 30},
+    {90, 135, 30, 30}};
+#endif
 
 SemaphoreHandle_t xMutexTargetPosition = NULL;
 
@@ -131,7 +134,6 @@ void write_auto_path(uint8_t arr[][LINKS_NUMBER + 1], uint8_t steps_n)
 void read_auto_path(uint8_t arr[][LINKS_NUMBER + 1], uint8_t *steps_n)
 {
     eeprom_read_byte(PATH_STEPS_ADDRESS, steps_n);
-    // ESP_LOGI(SERVO_TAG, "Steps: %d", steps_n);
     for (int i = 0; i < *steps_n; i++)
     {
         for (int j = 0; j < LINKS_NUMBER + 1; j++)
@@ -143,11 +145,12 @@ void read_auto_path(uint8_t arr[][LINKS_NUMBER + 1], uint8_t *steps_n)
 
 void servo_control_task(void *pvParameter)
 {
-    move_home(); // Move all servos to home position
+    move_home(); // Move all servos to home position on start
     vTaskDelay(pdMS_TO_TICKS(2000));
 
     while (1)
     {
+        // Execute only if movement is allowed
         if (movement_flag == 1)
         {
             if (xSemaphoreTake(xMutexTargetPosition, (TickType_t)10) == pdTRUE)
@@ -168,7 +171,7 @@ void servo_control_task(void *pvParameter)
             }
         }
         else
-            vTaskDelay(pdMS_TO_TICKS(50));
+            vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 
@@ -176,10 +179,13 @@ void read_potentiometers_task(void *pvParameter)
 {
     while (1)
     {
+        // Read and map analog values
         for (int i = 0; i < LINKS_NUMBER; i++)
         {
             pot_readings[i] = 10 * map(cd4051_read_channel(i), 0, 4095, 0, 18);
         }
+
+        // Update target position only in mode 1
         if (mode_flag == 1)
         {
             if (xSemaphoreTake(xMutexTargetPosition, (TickType_t)10) == pdTRUE)
@@ -258,8 +264,9 @@ void automatic_sequence_task(void *pvParameter)
 {
     while (1)
     {
-        if (mode_flag == 2)
+        if ((mode_flag == 2) && (path_steps <= MAX_PATH_STEPS))
         {
+            // Update position of links
             for (int i = 0; i < path_steps; i++)
             {
                 if (xSemaphoreTake(xMutexTargetPosition, portMAX_DELAY) == pdTRUE)
@@ -268,6 +275,7 @@ void automatic_sequence_task(void *pvParameter)
                     {
                         target_position[j] = work_path[i][j];
                     }
+                    // If mode has changed in the meantime -> break the loop
                     if (mode_flag != 2)
                     {
                         memcpy(target_position, home_position, sizeof(home_position));
@@ -277,6 +285,7 @@ void automatic_sequence_task(void *pvParameter)
                     xSemaphoreGive(xMutexTargetPosition);
                 }
 
+                // Update position of gripper
                 if (work_path[i][LINKS_NUMBER] == 1)
                 {
                     gripper_close();
@@ -284,6 +293,7 @@ void automatic_sequence_task(void *pvParameter)
                 else
                     gripper_open();
 
+                // Wait for servos to finish moving
                 vTaskDelay(100);
                 while (movement_flag == 1)
                 {
@@ -298,16 +308,17 @@ void automatic_sequence_task(void *pvParameter)
 #ifndef TESTING_ENVIRONMENT
 void app_main(void)
 {
-    eeprom_init();     // Initialize EEPROM
-    i2c_master_init(); // Initialize I2C
-    pca9685_init();    // Initialize PCA9685
-    cd4051_init();     // Initialize CD4051 multiplexer
-    buttons_init();    // Initialize buttons
+    eeprom_init();  // Initialize EEPROM on I2C1
+    pca9685_init(); // Initialize PCA9685 on I2C0
+    cd4051_init();  // Initialize CD4051 multiplexer
+    buttons_init(); // Initialize buttons
 
+#ifdef WRITE_EEPROM_ON_START
     write_auto_path(write_path, WRITE_PATH_STEPS); // Write automatic path to EEPROM
-    read_auto_path(work_path, &path_steps);        // Read automatic path from EEPROM
+#endif
+    read_auto_path(work_path, &path_steps); // Read automatic path from EEPROM
 
-    xMutexTargetPosition = xSemaphoreCreateMutex();
+    xMutexTargetPosition = xSemaphoreCreateMutex(); // Create mutex for target_position
 
     xTaskCreate(&servo_control_task, "servo_control_task", 2048, NULL, 2, NULL);
     xTaskCreate(&read_potentiometers_task, "read_potentiometers_task", 4096, NULL, 3, NULL);

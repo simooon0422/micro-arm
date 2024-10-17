@@ -6,13 +6,14 @@
 #define I2C_MASTER_NUM I2C_NUM_0   // I2C port number for master dev
 #define I2C_MASTER_TIMEOUT_MS 1000 // I2C timeout in ms
 
-#define PCA9685_ADDR 0x40 // Default PCA9685 address
 #define SERVO_MIN_US 500  // Minimum pulse width in µs
 #define SERVO_MAX_US 2600 // Maximum pulse width in µs
 #define PWM_FREQ 50       // PWM frequency for SG90 servo
 #define MAX_ANGLE 180     // Maximum servo angle
 
-void i2c_master_init(void)
+static const char *PCA9685_TAG = "PCA9685";
+
+esp_err_t i2c_master_init()
 {
     i2c_config_t conf = {
         .mode = I2C_MODE_MASTER,
@@ -22,8 +23,19 @@ void i2c_master_init(void)
         .scl_pullup_en = GPIO_PULLUP_ENABLE,
         .master.clk_speed = I2C_MASTER_FREQ_HZ,
     };
-    i2c_param_config(I2C_MASTER_NUM, &conf);
-    i2c_driver_install(I2C_MASTER_NUM, conf.mode, 0, 0, 0);
+    esp_err_t ret = i2c_param_config(I2C_MASTER_NUM, &conf);
+    if (ret != ESP_OK)
+    {
+        ESP_LOGE(PCA9685_TAG, "I2C parameter configuration failed");
+        return ret;
+    }
+    ret = i2c_driver_install(I2C_MASTER_NUM, conf.mode, 0, 0, 0);
+    if (ret != ESP_OK)
+    {
+        ESP_LOGE(PCA9685_TAG, "I2C driver installation failed");
+    }
+
+    return ret;
 }
 
 esp_err_t i2c_write_byte(uint8_t dev_addr, uint8_t reg_addr, uint8_t data)
@@ -50,6 +62,7 @@ void pca9685_set_pwm_freq(uint16_t freq)
 
 void pca9685_init(void)
 {
+    i2c_master_init();
     i2c_write_byte(PCA9685_ADDR, 0x00, 0x00); // Reset PCA9685
     pca9685_set_pwm_freq(PWM_FREQ);           // Set PWM frequency to 50Hz
 }

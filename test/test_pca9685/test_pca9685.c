@@ -1,15 +1,14 @@
 #include <unity.h>
-#include "freertos/FreeRTOS.h"
 #include "pca9685.h"
 
-void setUp(void)
+void test_init(void)
 {
-    // set stuff up here
+    TEST_ASSERT_EQUAL(ESP_OK, i2c_master_init());
 }
 
-void tearDown(void)
+void test_write_byte(void)
 {
-    // clean stuff up here
+    TEST_ASSERT_EQUAL(ESP_OK, i2c_write_byte(PCA9685_ADDR, 0x00, 0x00));
 }
 
 void test_servo_angle_to_pwm_0(void)
@@ -47,6 +46,8 @@ int runUnityTests(void)
 {
     vTaskDelay(pdMS_TO_TICKS(2500));
     UNITY_BEGIN();
+    RUN_TEST(test_init);
+    RUN_TEST(test_write_byte);
     run_test_servo_angle_group();
     return UNITY_END();
 }

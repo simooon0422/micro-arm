@@ -1,9 +1,12 @@
 #include "driver/i2c.h"
+#include "esp_log.h"
+
+#define PCA9685_ADDR 0x40 // Default PCA9685 address
 
 /**
  * @brief Initialize I2C.
  */
-void i2c_master_init(void);
+esp_err_t i2c_master_init();
 
 /**
  * @brief Write one byte through I2C.

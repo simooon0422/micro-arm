@@ -1,16 +1,6 @@
 #include <unity.h>
 #include "main.h"
 
-void setUp(void)
-{
-    // set stuff up here
-}
-
-void tearDown(void)
-{
-    // clean stuff up here
-}
-
 // TEST MAP GROUP BEGIN
 void test_map_min_in_returns_min_out(void)
 {

@@ -5,16 +5,6 @@ uint8_t test_address = 127;
 uint8_t test_write_data = 100;
 uint8_t test_read_data;
 
-void setUp(void)
-{
-    // set stuff up here
-}
-
-void tearDown(void)
-{
-    // clean stuff up here
-}
-
 void test_eeprom_init_ok(void)
 {
     esp_err_t ret = eeprom_init();
