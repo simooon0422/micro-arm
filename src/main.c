@@ -2,19 +2,26 @@
 
 // #define WRITE_EEPROM_ON_START // Uncomment if you want to modify automatic path in EEPROM on start
 
-#define GRIPPER_BUTTON_PIN GPIO_NUM_13 // Gripper control button pin
-#define MODE_BUTTON_PIN GPIO_NUM_12    // Mode control button pin
-#define GRIPPER_CHANNEL 4              // PCA9685 channel for gripper
-#define MODES_NUMBER 3                 // Number of arm modes of working
-#define MAX_PATH_STEPS 10              // Maximum number of steps in automatic mode path
+#define GRIPPER_BUTTON_PIN GPIO_NUM_13   // Gripper control button pin
+#define MODE_BUTTON_PIN GPIO_NUM_12      // Mode control button pin
+#define GRIPPER_CHANNEL 4                // PCA9685 channel for gripper
+#define MODES_NUMBER 3                   // Number of arm's modes of working
+#define MAX_PATH_STEPS 10                // Maximum number of steps in automatic mode path
+#define DEBOUNCE_TIME pdMS_TO_TICKS(500) // Time for debouncing buttons in ms
+#define ESP_INTR_FLAG_DEFAULT 0          // Flags used to allocate the interrupt
 
 static const char *SERVO_TAG = "ServoControl";
 static const char *POT_TAG = "Potentiometers";
 static const char *GRIPPER_TAG = "Gripper";
 
-bool movement_flag = 0; // 0 - no movement required, 1 - movement required
-bool gripper_flag = 0;  // 0 - gripper open, 1 - gripper closed
-uint8_t mode_flag = 0;  // 0 - Home mode, 1 - Manual mode, 2 - Automatic mode
+bool movement_flag = 0;               // 0 - no movement required, 1 - movement required
+bool gripper_flag = 0;                // 0 - gripper open, 1 - gripper closed
+volatile bool isr_gripper_update = 0; // 0 - gripper position update not required, 1 - gripper position update required
+TickType_t last_gripper_time = 0;
+
+volatile uint8_t mode_flag = 0; // 0 - Home mode, 1 - Manual mode, 2 - Automatic mode
+TickType_t last_mode_time = 0;
+
 uint8_t path_steps = 0; // Number of path steps for automatic mode, default 0
 
 uint8_t home_position[LINKS_NUMBER] = {90, 135, 30, 30};    // Angle values of servo home positions
@@ -53,24 +60,24 @@ void buttons_init(void)
     gpio_reset_pin(GRIPPER_BUTTON_PIN);
     gpio_set_direction(GRIPPER_BUTTON_PIN, GPIO_MODE_INPUT);
     gpio_set_pull_mode(GRIPPER_BUTTON_PIN, GPIO_PULLUP_ONLY);
+    gpio_set_intr_type(GRIPPER_BUTTON_PIN, GPIO_INTR_NEGEDGE);
 
     // Set up mode button pin
     gpio_reset_pin(MODE_BUTTON_PIN);
     gpio_set_direction(MODE_BUTTON_PIN, GPIO_MODE_INPUT);
     gpio_set_pull_mode(MODE_BUTTON_PIN, GPIO_PULLUP_ONLY);
+    gpio_set_intr_type(MODE_BUTTON_PIN, GPIO_INTR_NEGEDGE);
 }
 
 void gripper_open()
 {
     pca9685_set_servo_angle(GRIPPER_CHANNEL, 0);
-    ESP_LOGI(GRIPPER_TAG, "Gripper is open");
     gripper_flag = 0;
 }
 
 void gripper_close()
 {
     pca9685_set_servo_angle(GRIPPER_CHANNEL, 180);
-    ESP_LOGI(GRIPPER_TAG, "Gripper is closed");
     gripper_flag = 1;
 }
 
@@ -141,6 +148,19 @@ void read_auto_path(uint8_t arr[][LINKS_NUMBER + 1], uint8_t *steps_n)
             eeprom_read_byte(j + (i * (LINKS_NUMBER + 1)), &arr[i][j]);
         }
     }
+}
+
+static void isr_gripper_handler()
+{
+    if (xTaskGetTickCountFromISR() - last_gripper_time >= DEBOUNCE_TIME)
+    {
+        isr_gripper_update = 1;
+        last_gripper_time = xTaskGetTickCountFromISR();
+    }
+}
+
+static void isr_mode_handler()
+{
 }
 
 void servo_control_task(void *pvParameter)
@@ -223,18 +243,22 @@ void gripper_control_task(void *pvParameter)
 {
     while (1)
     {
-        if (gpio_get_level(GRIPPER_BUTTON_PIN) == 0)
+        if (isr_gripper_update == 1)
         {
             if (gripper_flag == 0)
             {
                 gripper_close();
+                ESP_LOGI(GRIPPER_TAG, "Gripper is closed");
             }
             else
+            {
                 gripper_open();
+                ESP_LOGI(GRIPPER_TAG, "Gripper is open");
+            }
 
-            vTaskDelay(pdMS_TO_TICKS(500));
+            isr_gripper_update = 0;
         }
-        vTaskDelay(pdMS_TO_TICKS(50));
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 
@@ -319,6 +343,9 @@ void app_main(void)
     read_auto_path(work_path, &path_steps); // Read automatic path from EEPROM
 
     xMutexTargetPosition = xSemaphoreCreateMutex(); // Create mutex for target_position
+
+    gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);                     // Allow per-pin GPIO interrupt handlers
+    gpio_isr_handler_add(GRIPPER_BUTTON_PIN, isr_gripper_handler, NULL); // Gripper interrupt
 
     xTaskCreate(&servo_control_task, "servo_control_task", 2048, NULL, 2, NULL);
     xTaskCreate(&read_potentiometers_task, "read_potentiometers_task", 4096, NULL, 3, NULL);
