@@ -35,6 +35,13 @@ void gripper_open();
 void gripper_close();
 
 /**
+ * @brief Modify target positions with new array of positions.
+ * @param new_target Array with new positions.
+ * @param new_target_size Size of the new array
+ */
+void set_target_position(uint8_t new_target[LINKS_NUMBER], uint8_t new_target_size);
+
+/**
  * @brief Move all servos to home position.
  */
 void move_home();
@@ -69,6 +76,16 @@ void write_auto_path(uint8_t arr[][LINKS_NUMBER + 1], uint8_t steps_n);
  * @param steps_n Pointer to variable to store number of path steps
  */
 void read_auto_path(uint8_t arr[][LINKS_NUMBER + 1], uint8_t *steps_n);
+
+/**
+ * @brief Gripper button interrupt handler.
+ */
+static void isr_gripper_handler();
+
+/**
+ * @brief Mode button interrupt handler.
+ */
+static void isr_mode_handler();
 
 /**
  * @brief Task for reading values from control potentiometers.

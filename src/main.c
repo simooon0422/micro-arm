@@ -19,7 +19,8 @@ bool gripper_flag = 0;                // 0 - gripper open, 1 - gripper closed
 volatile bool isr_gripper_update = 0; // 0 - gripper position update not required, 1 - gripper position update required
 TickType_t last_gripper_time = 0;
 
-volatile uint8_t mode_flag = 0; // 0 - Home mode, 1 - Manual mode, 2 - Automatic mode
+volatile uint8_t mode_flag = 0;    // 0 - Home mode, 1 - Manual mode, 2 - Automatic mode
+volatile bool isr_mode_update = 0; // 0 - no mode update required, 1 - mode update required
 TickType_t last_mode_time = 0;
 
 uint8_t path_steps = 0; // Number of path steps for automatic mode, default 0
@@ -79,6 +80,15 @@ void gripper_close()
 {
     pca9685_set_servo_angle(GRIPPER_CHANNEL, 180);
     gripper_flag = 1;
+}
+
+void set_target_position(uint8_t new_target[LINKS_NUMBER], uint8_t new_target_size)
+{
+    if (xSemaphoreTake(xMutexTargetPosition, portMAX_DELAY) == pdTRUE)
+    {
+        memcpy(target_position, new_target, new_target_size);
+        xSemaphoreGive(xMutexTargetPosition);
+    }
 }
 
 void move_home()
@@ -161,6 +171,11 @@ static void isr_gripper_handler()
 
 static void isr_mode_handler()
 {
+    if (xTaskGetTickCountFromISR() - last_mode_time >= DEBOUNCE_TIME)
+    {
+        isr_mode_update = 1;
+        last_mode_time = xTaskGetTickCountFromISR();
+    }
 }
 
 void servo_control_task(void *pvParameter)
@@ -208,11 +223,7 @@ void read_potentiometers_task(void *pvParameter)
         // Update target position only in mode 1
         if (mode_flag == 1)
         {
-            if (xSemaphoreTake(xMutexTargetPosition, (TickType_t)10) == pdTRUE)
-            {
-                memcpy(target_position, pot_readings, sizeof(pot_readings));
-                xSemaphoreGive(xMutexTargetPosition);
-            }
+            set_target_position(pot_readings, sizeof(pot_readings));
         }
         ESP_LOGI(POT_TAG, "Readings: %d, %d, %d, %d", pot_readings[0], pot_readings[1], pot_readings[2], pot_readings[3]);
         vTaskDelay(pdMS_TO_TICKS(100));
@@ -266,19 +277,31 @@ void mode_control_task(void *pvParameter)
 {
     while (1)
     {
-        if (gpio_get_level(MODE_BUTTON_PIN) == 0)
+        if (isr_mode_update == 1)
         {
             mode_flag++;
             if (mode_flag >= MODES_NUMBER)
             {
                 mode_flag = 0;
-                if (xSemaphoreTake(xMutexTargetPosition, portMAX_DELAY) == pdTRUE)
-                {
-                    memcpy(target_position, home_position, sizeof(home_position));
-                    xSemaphoreGive(xMutexTargetPosition);
-                }
             }
-            vTaskDelay(pdMS_TO_TICKS(500));
+
+            switch (mode_flag)
+            {
+            case 0:
+                set_target_position(home_position, sizeof(home_position));
+                break;
+
+            case 1:
+                break;
+
+            case 2:
+                break;
+
+            default:
+                break;
+            }
+
+            isr_mode_update = 0;
         }
         vTaskDelay(pdMS_TO_TICKS(50));
     }
@@ -299,14 +322,14 @@ void automatic_sequence_task(void *pvParameter)
                     {
                         target_position[j] = work_path[i][j];
                     }
-                    // If mode has changed in the meantime -> break the loop
-                    if (mode_flag != 2)
-                    {
-                        memcpy(target_position, home_position, sizeof(home_position));
-                        xSemaphoreGive(xMutexTargetPosition);
-                        break;
-                    }
                     xSemaphoreGive(xMutexTargetPosition);
+                }
+
+                // If mode has changed in the meantime -> break the loop
+                if (mode_flag != 2)
+                {
+                    set_target_position(home_position, sizeof(home_position));
+                    break;
                 }
 
                 // Update position of gripper
@@ -346,6 +369,7 @@ void app_main(void)
 
     gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);                     // Allow per-pin GPIO interrupt handlers
     gpio_isr_handler_add(GRIPPER_BUTTON_PIN, isr_gripper_handler, NULL); // Gripper interrupt
+    gpio_isr_handler_add(MODE_BUTTON_PIN, isr_mode_handler, NULL);       // Mode change interrupt
 
     xTaskCreate(&servo_control_task, "servo_control_task", 2048, NULL, 2, NULL);
     xTaskCreate(&read_potentiometers_task, "read_potentiometers_task", 4096, NULL, 3, NULL);
