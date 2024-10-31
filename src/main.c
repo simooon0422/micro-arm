@@ -2,8 +2,12 @@
 
 // #define WRITE_EEPROM_ON_START // Uncomment if you want to modify automatic path in EEPROM on start
 
-#define GRIPPER_BUTTON_PIN GPIO_NUM_13   // Gripper control button pin
-#define MODE_BUTTON_PIN GPIO_NUM_12      // Mode control button pin
+#define GRIPPER_BUTTON_PIN GPIO_NUM_13 // Gripper control button pin
+#define MODE_BUTTON_PIN GPIO_NUM_12    // Mode control button pin
+#define GREEN_LED_PIN GPIO_NUM_4       // Greed diode pin
+#define YELLOW_LED_PIN GPIO_NUM_2      // Yellow diode pin
+#define RED_LED_PIN GPIO_NUM_15        // Red diode pin
+
 #define GRIPPER_CHANNEL 4                // PCA9685 channel for gripper
 #define MODES_NUMBER 3                   // Number of arm's modes of working
 #define MAX_PATH_STEPS 10                // Maximum number of steps in automatic mode path
@@ -17,11 +21,19 @@ static const char *GRIPPER_TAG = "Gripper";
 bool movement_flag = 0;               // 0 - no movement required, 1 - movement required
 bool gripper_flag = 0;                // 0 - gripper open, 1 - gripper closed
 volatile bool isr_gripper_update = 0; // 0 - gripper position update not required, 1 - gripper position update required
-TickType_t last_gripper_time = 0;
+TickType_t last_gripper_time = 0;     // Last time of gripper interrupt
 
-volatile uint8_t mode_flag = 0;    // 0 - Home mode, 1 - Manual mode, 2 - Automatic mode
-volatile bool isr_mode_update = 0; // 0 - no mode update required, 1 - mode update required
-TickType_t last_mode_time = 0;
+enum Modes // Modes of working
+{
+    HOME = 0,
+    MANUAL = 1,
+    AUTO = 2
+};
+typedef enum Modes Modes_t;
+
+volatile Modes_t mode_flag = 0;    // 0 - Home mode, 1 - Manual mode, 2 - Automatic mode
+volatile bool isr_mode_update = 1; // 0 - no mode update required, 1 - mode update required
+TickType_t last_mode_time = 0;     // Last time of mode interrupt
 
 uint8_t path_steps = 0; // Number of path steps for automatic mode, default 0
 
@@ -55,7 +67,7 @@ int map(int x, int in_min, int in_max, int out_min, int out_max)
     return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
-void buttons_init(void)
+void buttons_init()
 {
     // Set up gripper button pin
     gpio_reset_pin(GRIPPER_BUTTON_PIN);
@@ -68,6 +80,17 @@ void buttons_init(void)
     gpio_set_direction(MODE_BUTTON_PIN, GPIO_MODE_INPUT);
     gpio_set_pull_mode(MODE_BUTTON_PIN, GPIO_PULLUP_ONLY);
     gpio_set_intr_type(MODE_BUTTON_PIN, GPIO_INTR_NEGEDGE);
+}
+
+void diodes_init()
+{
+    gpio_reset_pin(GREEN_LED_PIN);
+    gpio_reset_pin(YELLOW_LED_PIN);
+    gpio_reset_pin(RED_LED_PIN);
+
+    gpio_set_direction(GREEN_LED_PIN, GPIO_MODE_OUTPUT);
+    gpio_set_direction(YELLOW_LED_PIN, GPIO_MODE_OUTPUT);
+    gpio_set_direction(RED_LED_PIN, GPIO_MODE_OUTPUT);
 }
 
 void gripper_open()
@@ -174,6 +197,11 @@ static void isr_mode_handler()
     if (xTaskGetTickCountFromISR() - last_mode_time >= DEBOUNCE_TIME)
     {
         isr_mode_update = 1;
+        mode_flag++;
+        if (mode_flag >= MODES_NUMBER)
+        {
+            mode_flag = 0;
+        }
         last_mode_time = xTaskGetTickCountFromISR();
     }
 }
@@ -236,10 +264,12 @@ void position_control_task(void *pvParameter)
     {
         if (xSemaphoreTake(xMutexTargetPosition, (TickType_t)10) == pdTRUE)
         {
+            // Set movement flag to 1 if current position and target position are different
             if ((movement_flag == 0) & (check_position(current_position, target_position, LINKS_NUMBER) == false))
             {
                 movement_flag = 1;
             }
+            // Set movement flag to 0 if current position and target position are the same
             else if ((movement_flag == 1) & (check_position(current_position, target_position, LINKS_NUMBER) == true))
             {
                 movement_flag = 0;
@@ -277,24 +307,27 @@ void mode_control_task(void *pvParameter)
 {
     while (1)
     {
-        if (isr_mode_update == 1)
+        if (isr_mode_update == 1) // Update mode only if user pressed mode button
         {
-            mode_flag++;
-            if (mode_flag >= MODES_NUMBER)
-            {
-                mode_flag = 0;
-            }
-
             switch (mode_flag)
             {
-            case 0:
+            case HOME: // Home mode - set home position and light green diode
                 set_target_position(home_position, sizeof(home_position));
+                gpio_set_level(GREEN_LED_PIN, 1);
+                gpio_set_level(YELLOW_LED_PIN, 0);
+                gpio_set_level(RED_LED_PIN, 0);
                 break;
 
-            case 1:
+            case MANUAL: // Manual mode - light yellow diode
+                gpio_set_level(GREEN_LED_PIN, 0);
+                gpio_set_level(YELLOW_LED_PIN, 1);
+                gpio_set_level(RED_LED_PIN, 0);
                 break;
 
-            case 2:
+            case AUTO: // Automatic mode - light red diode
+                gpio_set_level(GREEN_LED_PIN, 0);
+                gpio_set_level(YELLOW_LED_PIN, 0);
+                gpio_set_level(RED_LED_PIN, 1);
                 break;
 
             default:
@@ -359,6 +392,7 @@ void app_main(void)
     pca9685_init(); // Initialize PCA9685 on I2C0
     cd4051_init();  // Initialize CD4051 multiplexer
     buttons_init(); // Initialize buttons
+    diodes_init();  // Initialize diodes
 
 #ifdef WRITE_EEPROM_ON_START
     write_auto_path(write_path, WRITE_PATH_STEPS); // Write automatic path to EEPROM

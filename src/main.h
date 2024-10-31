@@ -25,6 +25,16 @@
 int map(int, int in_min, int in_max, int out_min, int out_max);
 
 /**
+ * @brief Initialize pins for buttons.
+ */
+void buttons_init();
+
+/**
+ * @brief Initialize pins for diodes.
+ */
+void diodes_init();
+
+/**
  * @brief Open gripper.
  */
 void gripper_open();
