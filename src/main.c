@@ -394,6 +394,7 @@ void app_main(void)
     cd4051_init();  // Initialize CD4051 multiplexer
     buttons_init(); // Initialize buttons
     diodes_init();  // Initialize diodes
+    st7735_init();  // Initialize LCD display
 
 #ifdef WRITE_EEPROM_ON_START
     write_auto_path(write_path, WRITE_PATH_STEPS); // Write automatic path to EEPROM

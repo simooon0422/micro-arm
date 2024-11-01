@@ -94,6 +94,33 @@ esp_err_t lcd_send_data(uint8_t data)
 
 void st7735_init()
 {
+    init_spi();
+
+    // Set data and reset pins
+    gpio_set_direction(PIN_NUM_DC, GPIO_MODE_OUTPUT);
+    gpio_set_direction(PIN_NUM_RST, GPIO_MODE_OUTPUT);
+
+    // Reset dispaly
+    gpio_set_level(PIN_NUM_RST, 0);
+    vTaskDelay(pdMS_TO_TICKS(100));
+    gpio_set_level(PIN_NUM_RST, 1);
+    vTaskDelay(pdMS_TO_TICKS(100));
+
+    // Initialization sequence for ST7735
+    lcd_send_command(ST7735_SWRESET); // Software Reset
+    vTaskDelay(pdMS_TO_TICKS(150));
+
+    lcd_send_command(ST7735_SLPOUT); // Sleep Out
+    vTaskDelay(pdMS_TO_TICKS(500));
+
+    lcd_send_command(ST7735_COLMOD);           // Interface Pixel Format
+    lcd_send_data(ST7735S_PIXEL_FORMAT_16BIT); // 16-bit/pixel
+
+    lcd_send_command(ST7735_MADCTL);              // Memory Data Access Control
+    lcd_send_data(ST7735S_MEMORY_ACCESS_DEFAULT); // Set orientation
+
+    lcd_send_command(ST7735_DISPON); // Display ON
+    vTaskDelay(pdMS_TO_TICKS(100));
 }
 
 void lcd_draw_pixel(uint16_t x, uint16_t y, uint16_t color)

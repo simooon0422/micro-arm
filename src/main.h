@@ -9,6 +9,7 @@
 #include "pca9685.h"
 #include "cd4051_analog.h"
 #include "eeprom.h"
+#include "lcd_st7735s.h"
 
 #define LINKS_NUMBER 4         // Number of arm links
 #define PATH_STEPS_ADDRESS 100 // Address of steps number in EEPROM
