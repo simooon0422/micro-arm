@@ -63,3 +63,19 @@ void lcd_set_box_borders(uint16_t x, uint16_t y, uint16_t width, uint16_t height
  * @param color Color of pixel
  */
 void lcd_draw_box(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t color);
+
+/**
+ * @brief Draw single pixel on display.
+ * @param x X coordinate of pixel.
+ * @param y Y coordinate of pixel.
+ * @param color Color of pixel.
+ */
+void lcd_put_pixel(uint16_t x, uint16_t y, uint16_t color);
+
+/**
+ * @brief Copy buffer to display.
+ * @return
+ *     - ESP_OK Success
+ *     - ESP_ERR_INVALID_ARG Parameter error
+ */
+esp_err_t lcd_send_buffer();
