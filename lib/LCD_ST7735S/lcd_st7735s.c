@@ -13,11 +13,14 @@
 #define ST7735_DISPON 0x29  // Display ON
 
 #define ST7735S_PIXEL_FORMAT_16BIT 0x05    // 16-bit format (RGB565)
-#define ST7735S_MEMORY_ACCESS_DEFAULT 0xC8 // Default display orientation
+#define ST7735S_MEMORY_ACCESS_DEFAULT 0xA0 // Horizontal display orientation
 
 #define ST7735_CASET 0x2A // Column Address Set
 #define ST7735_RASET 0x2B // Row Address Set
 #define ST7735_RAMWR 0x2C // Memory Write
+
+#define LCD_OFFSET_X 1 // X offset of LCD display
+#define LCD_OFFSET_Y 2 // Y offset of LCD display
 
 #define ST7735_TAG "ST7735"
 
@@ -92,6 +95,23 @@ esp_err_t lcd_send_data(uint8_t data)
     return ret;
 }
 
+esp_err_t lcd_send_data16(uint16_t data)
+{
+    esp_err_t ret = lcd_send_data(data >> 8);
+    if (ret != ESP_OK)
+    {
+        ESP_LOGE(ST7735_TAG, "Send data16 part 1 failed");
+        return ret;
+    }
+
+    ret = lcd_send_data(data);
+    if (ret != ESP_OK)
+    {
+        ESP_LOGE(ST7735_TAG, "Send data16 part 2 failed");
+    }
+    return ret;
+}
+
 void st7735_init()
 {
     init_spi();
@@ -123,6 +143,24 @@ void st7735_init()
     vTaskDelay(pdMS_TO_TICKS(100));
 }
 
-void lcd_draw_pixel(uint16_t x, uint16_t y, uint16_t color)
+void lcd_set_box_borders(uint16_t x, uint16_t y, uint16_t width, uint16_t height)
 {
+    lcd_send_command(ST7735_CASET); // Column Address Set start X and end X
+    lcd_send_data16(LCD_OFFSET_X + x);
+    lcd_send_data16(LCD_OFFSET_X + x + width - 1);
+
+    lcd_send_command(ST7735_RASET); // Row Address Set start Y and end Y
+    lcd_send_data16(LCD_OFFSET_Y + y);
+    lcd_send_data16(LCD_OFFSET_Y + y + height - 1);
+}
+
+void lcd_draw_box(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t color)
+{
+    lcd_set_box_borders(x, y, width, height); // Set borders of the box
+    
+    lcd_send_command(ST7735_RAMWR); // Memory Write color
+    for (int i = 0; i < width * height; i++)
+    {
+        lcd_send_data16(color);
+    }
 }
