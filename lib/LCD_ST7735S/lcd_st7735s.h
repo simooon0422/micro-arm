@@ -66,11 +66,12 @@ void lcd_draw_box(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint1
 
 /**
  * @brief Draw single pixel on display.
+ * @param _surface Hagl backend.
  * @param x X coordinate of pixel.
  * @param y Y coordinate of pixel.
  * @param color Color of pixel.
  */
-void lcd_put_pixel(uint16_t x, uint16_t y, uint16_t color);
+void lcd_put_pixel(void *_surface, uint16_t x, uint16_t y, uint16_t color);
 
 /**
  * @brief Copy buffer to display.

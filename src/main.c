@@ -389,12 +389,21 @@ void automatic_sequence_task(void *pvParameter)
 #ifndef TESTING_ENVIRONMENT
 void app_main(void)
 {
-    eeprom_init();  // Initialize EEPROM on I2C1
-    pca9685_init(); // Initialize PCA9685 on I2C0
-    cd4051_init();  // Initialize CD4051 multiplexer
-    buttons_init(); // Initialize buttons
-    diodes_init();  // Initialize diodes
-    st7735_init();  // Initialize LCD display
+    eeprom_init();                         // Initialize EEPROM on I2C1
+    pca9685_init();                        // Initialize PCA9685 on I2C0
+    cd4051_init();                         // Initialize CD4051 multiplexer
+    buttons_init();                        // Initialize buttons
+    diodes_init();                         // Initialize diodes
+    st7735_init();                         // Initialize LCD display
+    hagl_backend_t *display = hagl_init(); // Initialize hagl backend
+
+    for (int i = 0; i < 8; i++)
+    {
+        hagl_draw_rounded_rectangle(display, 2 + i, 2 + i, 158 - i, 126 - i, 8 - i, rgb565(0, 0, i * 16));
+    }
+
+    hagl_put_text(display, L"Hello World!", 40, 55, 0xe007, font6x9);
+    lcd_send_buffer();
 
 #ifdef WRITE_EEPROM_ON_START
     write_auto_path(write_path, WRITE_PATH_STEPS); // Write automatic path to EEPROM

@@ -11,6 +11,11 @@
 #include "eeprom.h"
 #include "lcd_st7735s.h"
 
+#include <hagl_hal.h>
+#include <hagl.h>
+#include "font6x9.h"
+#include "rgb565.h"
+
 #define LINKS_NUMBER 4         // Number of arm links
 #define PATH_STEPS_ADDRESS 100 // Address of steps number in EEPROM
 

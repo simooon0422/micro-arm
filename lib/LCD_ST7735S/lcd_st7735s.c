@@ -170,7 +170,7 @@ void lcd_draw_box(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint1
     }
 }
 
-void lcd_put_pixel(uint16_t x, uint16_t y, uint16_t color)
+void lcd_put_pixel(void *_surface, uint16_t x, uint16_t y, uint16_t color)
 {
     lcd_display_buffer[x + y * LCD_WIDTH] = color;
 }
