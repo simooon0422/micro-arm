@@ -2,8 +2,15 @@
 #include "driver/gpio.h"
 #include "esp_log.h"
 
-#define LCD_WIDTH 160  // Width of LCD display
-#define LCD_HEIGHT 128 // Height of LCD display
+#define LCD_WIDTH   160  // Width of LCD display
+#define LCD_HEIGHT  128 // Height of LCD display
+
+// Colors
+#define BLACK   0x0000
+#define WHITE   0xffff
+#define RED		0x00f8
+#define GREEN	0xe007
+#define YELLOW	0xe0ff
 
 /**
  * @brief Initialize SPI bus.
@@ -71,7 +78,7 @@ void lcd_draw_box(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint1
  * @param y Y coordinate of pixel.
  * @param color Color of pixel.
  */
-void lcd_put_pixel(void *_surface, uint16_t x, uint16_t y, uint16_t color);
+void lcd_put_pixel(void *_surface, int16_t x, int16_t y, uint16_t color);
 
 /**
  * @brief Copy buffer to display.

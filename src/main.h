@@ -117,3 +117,8 @@ void servo_control_task(void *pvParameter);
  * @brief Task for controlling position flag.
  */
 void position_control_task(void *pvParameter);
+
+/**
+ * @brief Task for controlling LCD display.
+ */
+void lcd_display_task(void *pvParameter);

@@ -386,24 +386,73 @@ void automatic_sequence_task(void *pvParameter)
     }
 }
 
+void lcd_display_task(void *pvParameter)
+{
+    hagl_backend_t *display = (hagl_backend_t *)pvParameter;
+    hagl_fill_rectangle(display, 0, 0, LCD_WIDTH, LCD_HEIGHT, BLACK);
+    hagl_fill_rectangle(display, 0, 0, 60, 40, GREEN);
+    hagl_fill_rectangle(display, 60, 0, LCD_WIDTH, 40, RED);
+
+    for (int i = 0; i < LINKS_NUMBER; i++)
+    {
+        wchar_t text[] = L"L ";
+        char link_num[2];
+        sprintf(link_num, "%d", i);
+        text[1] = link_num[0];
+        hagl_put_text(display, text, 50 + (30 * i), 42, YELLOW, font6x9);
+    }
+
+    hagl_put_text(display, L"TAR:", 10, 60, YELLOW, font6x9); // Display line with target positions
+    for (int i = 0; i < LINKS_NUMBER; i++)
+    {
+        wchar_t text[] = L"   ";
+        char link_val[4];
+        sprintf(link_val, "%d", 100);
+        text[0] = link_val[0];
+        text[1] = link_val[1];
+        text[2] = link_val[2];
+        hagl_put_text(display, text, 50 + (30 * i), 60, YELLOW, font6x9);
+    }
+    hagl_put_text(display, L"CUR:", 10, 85, YELLOW, font6x9); // Display line with current positions
+    for (int i = 0; i < LINKS_NUMBER; i++)
+    {
+        wchar_t text[] = L"   ";
+        char link_val[4];
+        sprintf(link_val, "%d", 50);
+        text[0] = link_val[0];
+        text[1] = link_val[1];
+        text[2] = link_val[2];
+        hagl_put_text(display, text, 50 + (30 * i), 85, YELLOW, font6x9);
+    }
+    hagl_put_text(display, L"POT:", 10, 110, YELLOW, font6x9); // Display line with potentiometers positions
+    for (int i = 0; i < LINKS_NUMBER; i++)
+    {
+        wchar_t text[] = L"   ";
+        char link_val[4];
+        sprintf(link_val, "%d", 3);
+        text[0] = link_val[0];
+        text[1] = link_val[1];
+        text[2] = link_val[2];
+        hagl_put_text(display, text, 50 + (30 * i), 110, YELLOW, font6x9);
+    }
+    lcd_send_buffer();
+    while (1)
+    {
+        /* code */
+    }
+}
+
 #ifndef TESTING_ENVIRONMENT
 void app_main(void)
 {
-    eeprom_init();                         // Initialize EEPROM on I2C1
-    pca9685_init();                        // Initialize PCA9685 on I2C0
-    cd4051_init();                         // Initialize CD4051 multiplexer
-    buttons_init();                        // Initialize buttons
-    diodes_init();                         // Initialize diodes
-    st7735_init();                         // Initialize LCD display
+    eeprom_init();  // Initialize EEPROM on I2C1
+    pca9685_init(); // Initialize PCA9685 on I2C0
+    cd4051_init();  // Initialize CD4051 multiplexer
+    buttons_init(); // Initialize buttons
+    diodes_init();  // Initialize diodes
+    st7735_init();  // Initialize LCD display
+
     hagl_backend_t *display = hagl_init(); // Initialize hagl backend
-
-    for (int i = 0; i < 8; i++)
-    {
-        hagl_draw_rounded_rectangle(display, 2 + i, 2 + i, 158 - i, 126 - i, 8 - i, rgb565(0, 0, i * 16));
-    }
-
-    hagl_put_text(display, L"Hello World!", 40, 55, 0xe007, font6x9);
-    lcd_send_buffer();
 
 #ifdef WRITE_EEPROM_ON_START
     write_auto_path(write_path, WRITE_PATH_STEPS); // Write automatic path to EEPROM
@@ -422,5 +471,6 @@ void app_main(void)
     xTaskCreate(&gripper_control_task, "gripper_control_task", 2048, NULL, 1, NULL);         // Create task for gripper control
     xTaskCreate(&mode_control_task, "mode_control_task", 2048, NULL, 4, NULL);               // Create task for mode control
     xTaskCreate(&automatic_sequence_task, "automatic_sequence_task", 2048, NULL, 3, NULL);   // Create task for automatic mode
+    xTaskCreate(&lcd_display_task, "lcd_display_task", 2048, display, 3, NULL);              // Create task for display control
 }
 #endif
