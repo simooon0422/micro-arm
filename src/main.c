@@ -52,6 +52,7 @@ uint8_t write_path[WRITE_PATH_STEPS][LINKS_NUMBER + 1] = { // Array with automat
 #endif
 
 SemaphoreHandle_t xMutexTargetPosition = NULL; // Mutex for target position
+QueueHandle_t xQueueTargetPosition = NULL;     // Queue for target position
 
 int map(int x, int in_min, int in_max, int out_min, int out_max)
 {
@@ -111,6 +112,7 @@ void set_target_position(uint8_t new_target[LINKS_NUMBER], uint8_t new_target_si
     if (xSemaphoreTake(xMutexTargetPosition, portMAX_DELAY) == pdTRUE)
     {
         memcpy(target_position, new_target, new_target_size); // Copy new positions to target_position
+        xQueueSend(xQueueTargetPosition, (void *)target_position, (TickType_t)10);
         xSemaphoreGive(xMutexTargetPosition);
     }
 }
@@ -207,6 +209,57 @@ static void isr_mode_handler()
     }
 }
 
+void show_headers(hagl_backend_t *display)
+{
+    hagl_fill_rectangle(display, 0, 0, 60, 40, GREEN);       // Placeholder for gripper icon
+    hagl_fill_rectangle(display, 60, 0, LCD_WIDTH, 40, RED); // Placeholder for mode icon
+
+    // Display links header
+    for (int i = 0; i < LINKS_NUMBER; i++)
+    {
+        wchar_t text[] = L"L ";
+        char link_num[2];
+        sprintf(link_num, "%d", i);
+        text[1] = link_num[0];
+        hagl_put_text(display, text, 50 + (30 * i), 42, YELLOW, font6x9);
+    }
+
+    hagl_put_text(display, L"TAR:", 10, 60, YELLOW, font6x9);  // Display target position header
+    hagl_put_text(display, L"CUR:", 10, 85, YELLOW, font6x9);  // Display current position header
+    hagl_put_text(display, L"POT:", 10, 110, YELLOW, font6x9); // Display potentiometers position header
+}
+
+void show_target(hagl_backend_t *display, uint8_t arr_target[])
+{
+    // uint8_t received_array[LINKS_NUMBER];
+    if (xQueueReceive(xQueueTargetPosition, arr_target, (TickType_t)10) == pdPASS)
+    {
+        for (int i = 0; i < LINKS_NUMBER; i++)
+        {
+            wchar_t text[] = L"   ";
+            char link_val[4];
+            sprintf(link_val, "%d", arr_target[i]);
+            text[0] = link_val[0];
+            text[1] = link_val[1];
+            text[2] = link_val[2];
+            hagl_put_text(display, text, 50 + (30 * i), 60, YELLOW, font6x9);
+        }
+    }
+    else
+    {
+        for (int i = 0; i < LINKS_NUMBER; i++)
+        {
+            wchar_t text[] = L"   ";
+            char link_val[4];
+            sprintf(link_val, "%d", arr_target[i]);
+            text[0] = link_val[0];
+            text[1] = link_val[1];
+            text[2] = link_val[2];
+            hagl_put_text(display, text, 50 + (30 * i), 60, YELLOW, font6x9);
+        }
+    }
+}
+
 void servo_control_task(void *pvParameter)
 {
     move_home();                     // Move all servos to home position on start
@@ -254,7 +307,7 @@ void read_potentiometers_task(void *pvParameter)
         {
             set_target_position(pot_readings, sizeof(pot_readings));
         }
-        ESP_LOGI(POT_TAG, "Readings: %d, %d, %d, %d", pot_readings[0], pot_readings[1], pot_readings[2], pot_readings[3]);
+        // ESP_LOGI(POT_TAG, "Readings: %d, %d, %d, %d", pot_readings[0], pot_readings[1], pot_readings[2], pot_readings[3]); // Log potentiometers readings
         vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
@@ -389,56 +442,17 @@ void automatic_sequence_task(void *pvParameter)
 void lcd_display_task(void *pvParameter)
 {
     hagl_backend_t *display = (hagl_backend_t *)pvParameter;
-    hagl_fill_rectangle(display, 0, 0, LCD_WIDTH, LCD_HEIGHT, BLACK);
-    hagl_fill_rectangle(display, 0, 0, 60, 40, GREEN);
-    hagl_fill_rectangle(display, 60, 0, LCD_WIDTH, 40, RED);
+    uint8_t received_target[LINKS_NUMBER];
+    uint8_t received_current[LINKS_NUMBER];
+    uint8_t received_pot[LINKS_NUMBER];
 
-    for (int i = 0; i < LINKS_NUMBER; i++)
-    {
-        wchar_t text[] = L"L ";
-        char link_num[2];
-        sprintf(link_num, "%d", i);
-        text[1] = link_num[0];
-        hagl_put_text(display, text, 50 + (30 * i), 42, YELLOW, font6x9);
-    }
-
-    hagl_put_text(display, L"TAR:", 10, 60, YELLOW, font6x9); // Display line with target positions
-    for (int i = 0; i < LINKS_NUMBER; i++)
-    {
-        wchar_t text[] = L"   ";
-        char link_val[4];
-        sprintf(link_val, "%d", 100);
-        text[0] = link_val[0];
-        text[1] = link_val[1];
-        text[2] = link_val[2];
-        hagl_put_text(display, text, 50 + (30 * i), 60, YELLOW, font6x9);
-    }
-    hagl_put_text(display, L"CUR:", 10, 85, YELLOW, font6x9); // Display line with current positions
-    for (int i = 0; i < LINKS_NUMBER; i++)
-    {
-        wchar_t text[] = L"   ";
-        char link_val[4];
-        sprintf(link_val, "%d", 50);
-        text[0] = link_val[0];
-        text[1] = link_val[1];
-        text[2] = link_val[2];
-        hagl_put_text(display, text, 50 + (30 * i), 85, YELLOW, font6x9);
-    }
-    hagl_put_text(display, L"POT:", 10, 110, YELLOW, font6x9); // Display line with potentiometers positions
-    for (int i = 0; i < LINKS_NUMBER; i++)
-    {
-        wchar_t text[] = L"   ";
-        char link_val[4];
-        sprintf(link_val, "%d", 3);
-        text[0] = link_val[0];
-        text[1] = link_val[1];
-        text[2] = link_val[2];
-        hagl_put_text(display, text, 50 + (30 * i), 110, YELLOW, font6x9);
-    }
-    lcd_send_buffer();
     while (1)
     {
-        /* code */
+        hagl_fill_rectangle(display, 0, 0, LCD_WIDTH, LCD_HEIGHT, BLACK); // Reset screen
+        show_headers(display);                                            // Display headers on LCD
+        show_target(display, received_target);                            // Display target position values on LCD
+        lcd_send_buffer();
+        vTaskDelay(10);
     }
 }
 
@@ -459,7 +473,8 @@ void app_main(void)
 #endif
     read_auto_path(work_path, &path_steps); // Read automatic path from EEPROM
 
-    xMutexTargetPosition = xSemaphoreCreateMutex(); // Create mutex for target_position
+    xMutexTargetPosition = xSemaphoreCreateMutex();                         // Create mutex for target_position
+    xQueueTargetPosition = xQueueCreate(1, sizeof(uint8_t) * LINKS_NUMBER); // Create queue for target_position
 
     gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);                     // Allow per-pin GPIO interrupt handlers
     gpio_isr_handler_add(GRIPPER_BUTTON_PIN, isr_gripper_handler, NULL); // Gripper interrupt

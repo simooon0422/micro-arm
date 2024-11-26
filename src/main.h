@@ -64,6 +64,9 @@ void move_home();
 
 /**
  * @brief Check if current servo positions matches target positions.
+ * @param current Array with current position.
+ * @param target Array with target position.
+ * @param n Size of array.
  * @return Position status (True - current position matches target position, False - current position doesn't match target position).
  */
 bool check_position(uint8_t current[], uint8_t target[], uint8_t n);
@@ -102,6 +105,18 @@ static void isr_gripper_handler();
  * @brief Mode button interrupt handler.
  */
 static void isr_mode_handler();
+/**
+ * @brief Display headers for values on LCD screen.
+ * @param display Hagl backend pointer
+ */
+void show_headers(hagl_backend_t *display);
+
+/**
+ * @brief Display target position values on LCD screen.
+ * @param display Hagl backend pointer.
+ * @param arr Array for storing received target position array.
+ */
+void show_target(hagl_backend_t *display, uint8_t arr_target[]);
 
 /**
  * @brief Task for reading values from control potentiometers.
