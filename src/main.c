@@ -209,6 +209,26 @@ static void isr_mode_handler()
     }
 }
 
+uint8_t get_num_digits(uint8_t n)
+{
+    if (n < 10)
+        return 1;
+    return 1 + get_num_digits(n / 10);
+}
+
+void get_text(wchar_t text_arr[], uint8_t x)
+{
+    uint8_t x_digits_num = get_num_digits(x);
+    char x_char[x_digits_num + 1];
+
+    sprintf(x_char, "%d", x);
+
+    for (int i = 0; i < x_digits_num; i++)
+    {
+        text_arr[i] = x_char[i];
+    }
+}
+
 void show_headers(hagl_backend_t *display)
 {
     hagl_fill_rectangle(display, 0, 0, 60, 40, GREEN);       // Placeholder for gripper icon
@@ -217,13 +237,14 @@ void show_headers(hagl_backend_t *display)
     // Display links header
     for (int i = 0; i < LINKS_NUMBER; i++)
     {
-        wchar_t text[] = L"L ";
-        char link_num[2];
-        sprintf(link_num, "%d", i);
-        text[1] = link_num[0];
-        hagl_put_text(display, text, 50 + (30 * i), 42, YELLOW, font6x9);
+        wchar_t header_text[2] = L"L ";
+        wchar_t link_num[2];
+        get_text(link_num, i);
+        header_text[1] = link_num[0];
+        hagl_put_text(display, header_text, 50 + (30 * i), 42, YELLOW, font6x9);
     }
 
+    // Display positions headers
     hagl_put_text(display, L"TAR:", 10, 60, YELLOW, font6x9);  // Display target position header
     hagl_put_text(display, L"CUR:", 10, 85, YELLOW, font6x9);  // Display current position header
     hagl_put_text(display, L"POT:", 10, 110, YELLOW, font6x9); // Display potentiometers position header
@@ -236,12 +257,8 @@ void show_target(hagl_backend_t *display, uint8_t arr_target[])
     {
         for (int i = 0; i < LINKS_NUMBER; i++)
         {
-            wchar_t text[] = L"   ";
-            char link_val[4];
-            sprintf(link_val, "%d", arr_target[i]);
-            text[0] = link_val[0];
-            text[1] = link_val[1];
-            text[2] = link_val[2];
+            wchar_t text[4] = L"   ";
+            get_text(text, arr_target[i]);
             hagl_put_text(display, text, 50 + (30 * i), 60, YELLOW, font6x9);
         }
     }
@@ -249,12 +266,8 @@ void show_target(hagl_backend_t *display, uint8_t arr_target[])
     {
         for (int i = 0; i < LINKS_NUMBER; i++)
         {
-            wchar_t text[] = L"   ";
-            char link_val[4];
-            sprintf(link_val, "%d", arr_target[i]);
-            text[0] = link_val[0];
-            text[1] = link_val[1];
-            text[2] = link_val[2];
+            wchar_t text[4] = L"   ";
+            get_text(text, arr_target[i]);
             hagl_put_text(display, text, 50 + (30 * i), 60, YELLOW, font6x9);
         }
     }
@@ -409,6 +422,7 @@ void automatic_sequence_task(void *pvParameter)
                     {
                         target_position[j] = work_path[i][j];
                     }
+                    xQueueSend(xQueueTargetPosition, (void *)target_position, (TickType_t)10);
                     xSemaphoreGive(xMutexTargetPosition);
                 }
 

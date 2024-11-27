@@ -139,6 +139,75 @@ void run_test_group_eeprom_sequence(void)
 }
 // TEST EEPROM SEQUENCE GROUP END
 
+// TEST GET NUM DIGITS GROUP BEGIN
+void test_get_num_digits_1_digit(void)
+{
+    TEST_ASSERT_EQUAL(1, get_num_digits(1));
+}
+
+void test_get_num_digits_2_digits(void)
+{
+    TEST_ASSERT_EQUAL(2, get_num_digits(12));
+}
+
+void test_get_num_digits_3_digits(void)
+{
+    TEST_ASSERT_EQUAL(3, get_num_digits(123));
+}
+
+/**
+ * @brief Run all tests for get_digits_num() function
+ */
+void run_test_group_digits_num(void)
+{
+    RUN_TEST(test_get_num_digits_1_digit);
+    RUN_TEST(test_get_num_digits_2_digits);
+    RUN_TEST(test_get_num_digits_3_digits);
+}
+// TEST GET NUM DIGITS GROUP END
+
+// TEST GET TEXT GROUP BEGIN
+void test_get_text_1_number(void)
+{
+    wchar_t test_text[4] = L"   ";
+    wchar_t correct_text[4] = L"1  ";
+    uint8_t test_x = 1;
+    uint8_t arr_size = sizeof(test_text);
+    get_text(test_text, test_x);
+    TEST_ASSERT_EQUAL_CHAR_ARRAY(correct_text, test_text, arr_size);
+}
+
+void test_get_text_2_numbers(void)
+{
+    wchar_t test_text[4] = L"   ";
+    wchar_t correct_text[4] = L"12 ";
+    uint8_t test_x = 12;
+    uint8_t arr_size = sizeof(test_text);
+    get_text(test_text, test_x);
+    TEST_ASSERT_EQUAL_CHAR_ARRAY(correct_text, test_text, arr_size);
+}
+
+void test_get_text_3_numbers(void)
+{
+    wchar_t test_text[4] = L"   ";
+    wchar_t correct_text[4] = L"123";
+    uint8_t test_x = 123;
+    uint8_t arr_size = sizeof(test_text);
+    get_text(test_text, test_x);
+    TEST_ASSERT_EQUAL_CHAR_ARRAY(correct_text, test_text, arr_size);
+}
+
+/**
+ * @brief Run all tests for get_text() function
+ */
+void run_test_group_get_text(void)
+{
+    RUN_TEST(test_get_text_1_number);
+    RUN_TEST(test_get_text_2_numbers);
+    RUN_TEST(test_get_text_3_numbers);
+}
+// TEST GET TEXT GROUP END
+
 int runUnityTests(void)
 {
     vTaskDelay(pdMS_TO_TICKS(2500));
@@ -147,6 +216,8 @@ int runUnityTests(void)
     run_test_group_check_position();
     run_test_group_get_step();
     run_test_group_eeprom_sequence();
+    run_test_group_digits_num();
+    run_test_group_get_text();
     return UNITY_END();
 }
 

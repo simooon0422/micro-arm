@@ -105,6 +105,21 @@ static void isr_gripper_handler();
  * @brief Mode button interrupt handler.
  */
 static void isr_mode_handler();
+
+/**
+ * @brief Calculate number of digits in number.
+ * @param n Number
+ * @return Number of digits.
+ */
+uint8_t get_num_digits(uint8_t n);
+
+/**
+ * @brief Convert number to text displayable on LCD screen.
+ * @param text_arr Array to store converted number.
+ * @param x Number for conversion.
+*/
+void get_text(wchar_t text_arr[], uint8_t x);
+
 /**
  * @brief Display headers for values on LCD screen.
  * @param display Hagl backend pointer
