@@ -134,6 +134,20 @@ void show_headers(hagl_backend_t *display);
 void show_target(hagl_backend_t *display, uint8_t arr_target[]);
 
 /**
+ * @brief Display current position values on LCD screen.
+ * @param display Hagl backend pointer.
+ * @param arr Array for storing received current position array.
+ */
+void show_current(hagl_backend_t *display, uint8_t arr_current[]);
+
+/**
+ * @brief Display potentiometers position values on LCD screen.
+ * @param display Hagl backend pointer.
+ * @param arr Array for storing received potentiometers position array.
+ */
+void show_potentiometers(hagl_backend_t *display, uint8_t arr_potentiometers[]);
+
+/**
  * @brief Task for reading values from control potentiometers.
  */
 void read_potentiometers_task(void *pvParameter);
