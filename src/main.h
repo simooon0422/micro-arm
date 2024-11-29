@@ -117,7 +117,7 @@ uint8_t get_num_digits(uint8_t n);
  * @brief Convert number to text displayable on LCD screen.
  * @param text_arr Array to store converted number.
  * @param x Number for conversion.
-*/
+ */
 void get_text(wchar_t text_arr[], uint8_t x);
 
 /**
@@ -127,25 +127,18 @@ void get_text(wchar_t text_arr[], uint8_t x);
 void show_headers(hagl_backend_t *display);
 
 /**
- * @brief Display target position values on LCD screen.
+ * @brief Display single position array values.
  * @param display Hagl backend pointer.
- * @param arr Array for storing received target position array.
+ * @param y0 Screen height of displayed values.
+ * @param arr Array of positions to display.
  */
-void show_target(hagl_backend_t *display, uint8_t arr_target[]);
+void show_position_array(hagl_backend_t *display, uint8_t arr[], uint8_t y0);
 
 /**
- * @brief Display current position values on LCD screen.
+ * @brief Display all target, current and potentiometers position values on LCD screen.
  * @param display Hagl backend pointer.
- * @param arr Array for storing received current position array.
  */
-void show_current(hagl_backend_t *display, uint8_t arr_current[]);
-
-/**
- * @brief Display potentiometers position values on LCD screen.
- * @param display Hagl backend pointer.
- * @param arr Array for storing received potentiometers position array.
- */
-void show_potentiometers(hagl_backend_t *display, uint8_t arr_potentiometers[]);
+void show_positions(hagl_backend_t *display);
 
 /**
  * @brief Task for reading values from control potentiometers.

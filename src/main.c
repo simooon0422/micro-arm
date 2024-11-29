@@ -249,44 +249,30 @@ void show_headers(hagl_backend_t *display)
     hagl_put_text(display, L"POT:", 10, 110, YELLOW, font6x9); // Display potentiometers position header
 }
 
-void show_target(hagl_backend_t *display, uint8_t arr_target[])
+void show_position_array(hagl_backend_t *display, uint8_t arr[], uint8_t y0)
 {
-    if (xSemaphoreTake(xMutexTargetPosition, portMAX_DELAY) == pdTRUE)
+    for (int i = 0; i < LINKS_NUMBER; i++)
     {
-        for (int i = 0; i < LINKS_NUMBER; i++)
-        {
-            wchar_t text[4] = L"   ";
-            get_text(text, target_position[i]);
-            hagl_put_text(display, text, 50 + (30 * i), 60, YELLOW, font6x9);
-        }
-        xSemaphoreGive(xMutexTargetPosition);
+        wchar_t text[4] = L"   ";
+        get_text(text, arr[i]);
+        hagl_put_text(display, text, 50 + (30 * i), y0, YELLOW, font6x9);
     }
 }
 
-void show_current(hagl_backend_t *display, uint8_t arr_current[])
+void show_positions(hagl_backend_t *display)
 {
+    // Display target and current position
     if (xSemaphoreTake(xMutexTargetPosition, portMAX_DELAY) == pdTRUE)
     {
-        for (int i = 0; i < LINKS_NUMBER; i++)
-        {
-            wchar_t text[4] = L"   ";
-            get_text(text, current_position[i]);
-            hagl_put_text(display, text, 50 + (30 * i), 85, YELLOW, font6x9);
-        }
+        show_position_array(display, target_position, 60);
+        show_position_array(display, current_position, 85);
         xSemaphoreGive(xMutexTargetPosition);
     }
-}
 
-void show_potentiometers(hagl_backend_t *display, uint8_t arr_potentiometers[])
-{
+    // Display potentiometers position
     if (xSemaphoreTake(xMutexPotentiometersPosition, portMAX_DELAY) == pdTRUE)
     {
-        for (int i = 0; i < LINKS_NUMBER; i++)
-        {
-            wchar_t text[4] = L"   ";
-            get_text(text, pot_readings[i]);
-            hagl_put_text(display, text, 50 + (30 * i), 110, YELLOW, font6x9);
-        }
+        show_position_array(display, pot_readings, 110);
         xSemaphoreGive(xMutexPotentiometersPosition);
     }
 }
@@ -486,9 +472,7 @@ void lcd_display_task(void *pvParameter)
     {
         hagl_fill_rectangle(display, 0, 0, LCD_WIDTH, LCD_HEIGHT, BLACK); // Reset screen
         show_headers(display);                                            // Display headers on LCD
-        show_target(display, received_target);                            // Display target position values on LCD
-        show_current(display, received_current);                          // Display current position values on LCD
-        show_potentiometers(display, received_pot);                       // Display potentiometers position values on LCD
+        show_positions(display);                                          // Display positions values on LCD
         lcd_send_buffer();
         vTaskDelay(10);
     }
