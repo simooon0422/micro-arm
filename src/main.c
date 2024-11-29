@@ -39,7 +39,7 @@ uint8_t path_steps = 0; // Number of path steps for automatic mode, default 0
 uint8_t home_position[LINKS_NUMBER] = {90, 135, 30, 30};    // Angle values of servo home positions
 uint8_t current_position[LINKS_NUMBER] = {90, 135, 30, 30}; // Angle values of servo current positions
 uint8_t target_position[LINKS_NUMBER] = {90, 135, 30, 30};  // Angle values of servo target positions
-uint8_t pot_readings[LINKS_NUMBER];                         // Readings from potentiometers mapped to angle values
+uint8_t pot_readings[LINKS_NUMBER] = {0};                   // Readings from potentiometers mapped to angle values
 
 uint8_t work_path[MAX_PATH_STEPS][LINKS_NUMBER + 1] = {0}; // Array for storing automatic path from EEPROM
 
@@ -51,10 +51,8 @@ uint8_t write_path[WRITE_PATH_STEPS][LINKS_NUMBER + 1] = { // Array with automat
     {90, 135, 30, 30}};
 #endif
 
-SemaphoreHandle_t xMutexTargetPosition = NULL;     // Mutex for target position
-QueueHandle_t xQueueTargetPosition = NULL;         // Queue for target position
-QueueHandle_t xQueueCurrentPosition = NULL;        // Queue for current position
-QueueHandle_t xQueuePotentiometersPosition = NULL; // Queue for potentiometers position
+SemaphoreHandle_t xMutexTargetPosition = NULL;         // Mutex for target position
+SemaphoreHandle_t xMutexPotentiometersPosition = NULL; // Mutex for potentiometers position
 
 int map(int x, int in_min, int in_max, int out_min, int out_max)
 {
@@ -113,8 +111,7 @@ void set_target_position(uint8_t new_target[LINKS_NUMBER], uint8_t new_target_si
 {
     if (xSemaphoreTake(xMutexTargetPosition, portMAX_DELAY) == pdTRUE)
     {
-        memcpy(target_position, new_target, new_target_size);                      // Copy new positions to target_position
-        xQueueSend(xQueueTargetPosition, (void *)target_position, (TickType_t)10); // Send target position to LCD task
+        memcpy(target_position, new_target, new_target_size); // Copy new positions to target_position
         xSemaphoreGive(xMutexTargetPosition);
     }
 }
@@ -133,8 +130,6 @@ void move_home()
     }
 
     gripper_open(); // Open robot gripper
-
-    xQueueSend(xQueueCurrentPosition, (void *)current_position, (TickType_t)10); // Send current home position to LCD task
 }
 
 bool check_position(uint8_t current[], uint8_t target[], uint8_t n)
@@ -161,10 +156,9 @@ int get_step(uint8_t current, uint8_t target)
 
 void move_step(uint8_t link)
 {
-    int step = get_step(current_position[link], target_position[link]);          // Acquire step for movement
-    pca9685_set_servo_angle(link, current_position[link] + step);                // Move servo by acquired step
-    current_position[link] = current_position[link] + step;                      // Update current position
-    xQueueSend(xQueueCurrentPosition, (void *)current_position, (TickType_t)10); // Send current position to LCD task
+    int step = get_step(current_position[link], target_position[link]); // Acquire step for movement
+    pca9685_set_servo_angle(link, current_position[link] + step);       // Move servo by acquired step
+    current_position[link] = current_position[link] + step;             // Update current position
 }
 
 void write_auto_path(uint8_t arr[][LINKS_NUMBER + 1], uint8_t steps_n)
@@ -257,67 +251,43 @@ void show_headers(hagl_backend_t *display)
 
 void show_target(hagl_backend_t *display, uint8_t arr_target[])
 {
-    if (xQueueReceive(xQueueTargetPosition, arr_target, (TickType_t)5) == pdPASS)
+    if (xSemaphoreTake(xMutexTargetPosition, portMAX_DELAY) == pdTRUE)
     {
         for (int i = 0; i < LINKS_NUMBER; i++)
         {
             wchar_t text[4] = L"   ";
-            get_text(text, arr_target[i]);
+            get_text(text, target_position[i]);
             hagl_put_text(display, text, 50 + (30 * i), 60, YELLOW, font6x9);
         }
-    }
-    else
-    {
-        for (int i = 0; i < LINKS_NUMBER; i++)
-        {
-            wchar_t text[4] = L"   ";
-            get_text(text, arr_target[i]);
-            hagl_put_text(display, text, 50 + (30 * i), 60, YELLOW, font6x9);
-        }
+        xSemaphoreGive(xMutexTargetPosition);
     }
 }
 
 void show_current(hagl_backend_t *display, uint8_t arr_current[])
 {
-    if (xQueueReceive(xQueueCurrentPosition, arr_current, (TickType_t)5) == pdPASS)
+    if (xSemaphoreTake(xMutexTargetPosition, portMAX_DELAY) == pdTRUE)
     {
         for (int i = 0; i < LINKS_NUMBER; i++)
         {
             wchar_t text[4] = L"   ";
-            get_text(text, arr_current[i]);
+            get_text(text, current_position[i]);
             hagl_put_text(display, text, 50 + (30 * i), 85, YELLOW, font6x9);
         }
-    }
-    else
-    {
-        for (int i = 0; i < LINKS_NUMBER; i++)
-        {
-            wchar_t text[4] = L"   ";
-            get_text(text, arr_current[i]);
-            hagl_put_text(display, text, 50 + (30 * i), 85, YELLOW, font6x9);
-        }
+        xSemaphoreGive(xMutexTargetPosition);
     }
 }
 
 void show_potentiometers(hagl_backend_t *display, uint8_t arr_potentiometers[])
 {
-    if (xQueueReceive(xQueuePotentiometersPosition, arr_potentiometers, (TickType_t)5) == pdPASS)
+    if (xSemaphoreTake(xMutexPotentiometersPosition, portMAX_DELAY) == pdTRUE)
     {
         for (int i = 0; i < LINKS_NUMBER; i++)
         {
             wchar_t text[4] = L"   ";
-            get_text(text, arr_potentiometers[i]);
+            get_text(text, pot_readings[i]);
             hagl_put_text(display, text, 50 + (30 * i), 110, YELLOW, font6x9);
         }
-    }
-    else
-    {
-        for (int i = 0; i < LINKS_NUMBER; i++)
-        {
-            wchar_t text[4] = L"   ";
-            get_text(text, arr_potentiometers[i]);
-            hagl_put_text(display, text, 50 + (30 * i), 110, YELLOW, font6x9);
-        }
+        xSemaphoreGive(xMutexPotentiometersPosition);
     }
 }
 
@@ -358,18 +328,22 @@ void read_potentiometers_task(void *pvParameter)
     while (1)
     {
         // Read and map analog values
-        for (int i = 0; i < LINKS_NUMBER; i++)
+        if (xSemaphoreTake(xMutexPotentiometersPosition, portMAX_DELAY) == pdTRUE)
         {
-            pot_readings[i] = 10 * map(cd4051_read_channel(i), 0, 4095, 0, 18);
-            xQueueSend(xQueuePotentiometersPosition, (void *)pot_readings, (TickType_t)10); // Send potentiometers position to LCD task
-        }
+            for (int i = 0; i < LINKS_NUMBER; i++)
+            {
+                pot_readings[i] = 10 * map(cd4051_read_channel(i), 0, 4095, 0, 18);
+            }
+            xSemaphoreGive(xMutexPotentiometersPosition);
 
-        // Update target position only in mode 1
-        if (current_mode == 1)
-        {
-            set_target_position(pot_readings, sizeof(pot_readings));
+            // Update target position only in mode 1
+            if (current_mode == 1)
+            {
+                set_target_position(pot_readings, sizeof(pot_readings));
+            }
+
+            ESP_LOGI(POT_TAG, "Readings: %d, %d, %d, %d", pot_readings[0], pot_readings[1], pot_readings[2], pot_readings[3]); // Log potentiometers readings
         }
-        ESP_LOGI(POT_TAG, "Readings: %d, %d, %d, %d", pot_readings[0], pot_readings[1], pot_readings[2], pot_readings[3]); // Log potentiometers readings
         vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
@@ -471,7 +445,6 @@ void automatic_sequence_task(void *pvParameter)
                     {
                         target_position[j] = work_path[i][j];
                     }
-                    xQueueSend(xQueueTargetPosition, (void *)target_position, (TickType_t)10);
                     xSemaphoreGive(xMutexTargetPosition);
                 }
 
@@ -538,10 +511,8 @@ void app_main(void)
 #endif
     read_auto_path(work_path, &path_steps); // Read automatic path from EEPROM
 
-    xMutexTargetPosition = xSemaphoreCreateMutex();                                 // Create mutex for target position
-    xQueueTargetPosition = xQueueCreate(2, sizeof(uint8_t) * LINKS_NUMBER);         // Create queue for target position
-    xQueueCurrentPosition = xQueueCreate(2, sizeof(uint8_t) * LINKS_NUMBER);        // Create queue for current position
-    xQueuePotentiometersPosition = xQueueCreate(2, sizeof(uint8_t) * LINKS_NUMBER); // Create queue for potentiometers position
+    xMutexTargetPosition = xSemaphoreCreateMutex();         // Create mutex for target position
+    xMutexPotentiometersPosition = xSemaphoreCreateMutex(); // Create mutex for potentiometers position
 
     gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);                     // Allow per-pin GPIO interrupt handlers
     gpio_isr_handler_add(GRIPPER_BUTTON_PIN, isr_gripper_handler, NULL); // Gripper interrupt
