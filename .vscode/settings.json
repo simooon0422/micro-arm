@@ -12,6 +12,7 @@
         "task.h": "c",
         "freertosconfig.h": "c",
         "string.h": "c",
-        "esp_intr_alloc.h": "c"
+        "esp_intr_alloc.h": "c",
+        "icons.h": "c"
     }
 }

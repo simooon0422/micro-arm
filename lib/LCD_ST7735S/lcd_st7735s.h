@@ -81,6 +81,17 @@ void lcd_draw_box(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint1
 void lcd_put_pixel(void *_surface, int16_t x, int16_t y, uint16_t color);
 
 /**
+ * @brief Draw image on display.
+ * @param _surface Hagl backend.
+ * @param x0 X coordinate of image starting corner.
+ * @param y0 Y coordinate of image starting corner.
+ * @param width Width of image
+ * @param height Height of image.
+ * @param image Array with image pixels color.
+ */
+void lcd_draw_image(void *_surface, uint16_t x0, uint16_t y0, uint16_t width, uint16_t height, const uint16_t image[]);
+
+/**
  * @brief Copy buffer to display.
  * @return
  *     - ESP_OK Success

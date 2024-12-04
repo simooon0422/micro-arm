@@ -43,6 +43,8 @@ uint8_t pot_readings[LINKS_NUMBER] = {0};                   // Readings from pot
 
 uint8_t work_path[MAX_PATH_STEPS][LINKS_NUMBER + 1] = {0}; // Array for storing automatic path from EEPROM
 
+uint16_t mode_icons[MODES_NUMBER][100 * 40];
+
 #ifdef WRITE_EEPROM_ON_START
 #define WRITE_PATH_STEPS 3                                 // Number of steps for sequence in automatic mode to write in EEPROM
 uint8_t write_path[WRITE_PATH_STEPS][LINKS_NUMBER + 1] = { // Array with automatic path to write to EEPROM
@@ -228,11 +230,37 @@ void get_text(wchar_t text_arr[], uint8_t x)
     }
 }
 
+void show_icons(hagl_backend_t *display)
+{
+    // Send mode icon to buffer
+    switch (current_mode)
+    {
+    case HOME: // Home mode
+        lcd_draw_image(display, 60, 0, 100, 40, home_mode_icon_map);
+        break;
+    case MANUAL: // Manual mode
+        lcd_draw_image(display, 60, 0, 100, 40, manual_mode_icon_map);
+        break;
+    case AUTO: // Automatic mode
+        lcd_draw_image(display, 60, 0, 100, 40, auto_mode_icon_map);
+        break;
+    default:
+        break;
+    }
+
+    // Send gripper icon to buffer
+    if (gripper_flag == 0)
+    {
+        lcd_draw_image(display, 0, 0, 60, 40, open_gripper_icon_map);
+    }
+    else
+    {
+        lcd_draw_image(display, 0, 0, 60, 40, closed_gripper_icon_map);
+    }
+}
+
 void show_headers(hagl_backend_t *display)
 {
-    hagl_fill_rectangle(display, 0, 0, 60, 40, GREEN);       // Placeholder for gripper icon
-    hagl_fill_rectangle(display, 60, 0, LCD_WIDTH, 40, RED); // Placeholder for mode icon
-
     // Display links header
     for (int i = 0; i < LINKS_NUMBER; i++)
     {
@@ -464,16 +492,14 @@ void automatic_sequence_task(void *pvParameter)
 void lcd_display_task(void *pvParameter)
 {
     hagl_backend_t *display = (hagl_backend_t *)pvParameter;
-    uint8_t received_target[LINKS_NUMBER] = {0};
-    uint8_t received_current[LINKS_NUMBER] = {0};
-    uint8_t received_pot[LINKS_NUMBER] = {0};
 
     while (1)
     {
         hagl_fill_rectangle(display, 0, 0, LCD_WIDTH, LCD_HEIGHT, BLACK); // Reset screen
+        show_icons(display);                                              // Display icons on LCD
         show_headers(display);                                            // Display headers on LCD
         show_positions(display);                                          // Display positions values on LCD
-        lcd_send_buffer();
+        lcd_send_buffer();                                                // Update screen with new buffer
         vTaskDelay(10);
     }
 }

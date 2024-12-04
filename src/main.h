@@ -10,6 +10,7 @@
 #include "cd4051_analog.h"
 #include "eeprom.h"
 #include "lcd_st7735s.h"
+#include "icons.h"
 
 #include <hagl_hal.h>
 #include <hagl.h>
@@ -119,6 +120,12 @@ uint8_t get_num_digits(uint8_t n);
  * @param x Number for conversion.
  */
 void get_text(wchar_t text_arr[], uint8_t x);
+
+/**
+ * @brief Display icons on LCD screen.
+ * @param display Hagl backend pointer
+ */
+void show_icons(hagl_backend_t *display);
 
 /**
  * @brief Display headers for values on LCD screen.

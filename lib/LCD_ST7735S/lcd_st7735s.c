@@ -175,6 +175,14 @@ void lcd_put_pixel(void *_surface, int16_t x, int16_t y, uint16_t color)
     lcd_display_buffer[x + y * LCD_WIDTH] = color;
 }
 
+void lcd_draw_image(void *_surface, uint16_t x0, uint16_t y0, uint16_t width, uint16_t height, const uint16_t image[])
+{
+    for (int i = 0; i < width*height; i++)
+    {
+        lcd_put_pixel(_surface, x0 + i%width, y0 + i/width, image[i]);
+    }
+}
+
 esp_err_t lcd_send_buffer()
 {
     lcd_set_box_borders(0, 0, LCD_WIDTH, LCD_HEIGHT);
