@@ -14,13 +14,18 @@
 #define DEBOUNCE_TIME pdMS_TO_TICKS(500) // Time for debouncing buttons in ms
 #define ESP_INTR_FLAG_DEFAULT 0          // Flags used to allocate the interrupt
 
+#define MODE_ICON_WIDTH 100    // Width od mode icon in pixels
+#define MODE_ICON_HEIGHT 40    // Height od mode icon in pixels
+#define GRIPPER_ICON_WIDTH 60  // Width od gripper icon in pixels
+#define GRIPPER_ICON_HEIGHT 40 // Height od gripper icon in pixels
+
 static const char *SERVO_TAG = "ServoControl"; // Tag for servo logging
 static const char *POT_TAG = "Potentiometers"; // Tag for potentiometers logging
 static const char *GRIPPER_TAG = "Gripper";    // Tag for gripper logging
 
 bool movement_flag = 0;                    // 0 - no movement required, 1 - movement required
-bool gripper_flag = 0;                     // 0 - gripper open, 1 - gripper closed
-volatile bool isr_gripper_update_flag = 0; // 0 - gripper position update not required, 1 - gripper position update required
+bool gripper_flag = 1;                     // 0 - gripper open, 1 - gripper closed
+volatile bool isr_gripper_update_flag = 1; // 0 - gripper position update not required, 1 - gripper position update required
 TickType_t last_gripper_time = 0;          // Last time of gripper interrupt
 
 typedef enum // Modes of working
@@ -43,7 +48,8 @@ uint8_t pot_readings[LINKS_NUMBER] = {0};                   // Readings from pot
 
 uint8_t work_path[MAX_PATH_STEPS][LINKS_NUMBER + 1] = {0}; // Array for storing automatic path from EEPROM
 
-uint16_t mode_icons[MODES_NUMBER][100 * 40];
+uint16_t mode_icon[MODE_ICON_WIDTH * MODE_ICON_HEIGHT];          // Array for storing current mode icon
+uint16_t gripper_icon[GRIPPER_ICON_WIDTH * GRIPPER_ICON_HEIGHT]; // Array for storing current gripper icon
 
 #ifdef WRITE_EEPROM_ON_START
 #define WRITE_PATH_STEPS 3                                 // Number of steps for sequence in automatic mode to write in EEPROM
@@ -55,6 +61,7 @@ uint8_t write_path[WRITE_PATH_STEPS][LINKS_NUMBER + 1] = { // Array with automat
 
 SemaphoreHandle_t xMutexTargetPosition = NULL;         // Mutex for target position
 SemaphoreHandle_t xMutexPotentiometersPosition = NULL; // Mutex for potentiometers position
+SemaphoreHandle_t xMutexIcons = NULL;                  // Mutex for accessing icons arrays
 
 int map(int x, int in_min, int in_max, int out_min, int out_max)
 {
@@ -232,30 +239,11 @@ void get_text(wchar_t text_arr[], uint8_t x)
 
 void show_icons(hagl_backend_t *display)
 {
-    // Send mode icon to buffer
-    switch (current_mode)
+    if (xSemaphoreTake(xMutexIcons, portMAX_DELAY) == pdTRUE)
     {
-    case HOME: // Home mode
-        lcd_draw_image(display, 60, 0, 100, 40, home_mode_icon_map);
-        break;
-    case MANUAL: // Manual mode
-        lcd_draw_image(display, 60, 0, 100, 40, manual_mode_icon_map);
-        break;
-    case AUTO: // Automatic mode
-        lcd_draw_image(display, 60, 0, 100, 40, auto_mode_icon_map);
-        break;
-    default:
-        break;
-    }
-
-    // Send gripper icon to buffer
-    if (gripper_flag == 0)
-    {
-        lcd_draw_image(display, 0, 0, 60, 40, open_gripper_icon_map);
-    }
-    else
-    {
-        lcd_draw_image(display, 0, 0, 60, 40, closed_gripper_icon_map);
+        lcd_draw_image(display, 60, 0, MODE_ICON_WIDTH, MODE_ICON_HEIGHT, mode_icon);
+        lcd_draw_image(display, 0, 0, GRIPPER_ICON_WIDTH, GRIPPER_ICON_HEIGHT, gripper_icon);
+        xSemaphoreGive(xMutexIcons);
     }
 }
 
@@ -390,18 +378,23 @@ void gripper_control_task(void *pvParameter)
     {
         if (isr_gripper_update_flag == 1)
         {
-            if (gripper_flag == 0)
+            if (xSemaphoreTake(xMutexIcons, portMAX_DELAY) == pdTRUE)
             {
-                gripper_close();
-                ESP_LOGI(GRIPPER_TAG, "Gripper is closed");
+                if (gripper_flag == 0)
+                {
+                    gripper_close();
+                    memcpy(gripper_icon, closed_gripper_icon_map, sizeof(gripper_icon));
+                    ESP_LOGI(GRIPPER_TAG, "Gripper is closed");
+                }
+                else
+                {
+                    gripper_open();
+                    memcpy(gripper_icon, open_gripper_icon_map, sizeof(gripper_icon));
+                    ESP_LOGI(GRIPPER_TAG, "Gripper is open");
+                }
             }
-            else
-            {
-                gripper_open();
-                ESP_LOGI(GRIPPER_TAG, "Gripper is open");
-            }
-
             isr_gripper_update_flag = 0;
+            xSemaphoreGive(xMutexIcons);
         }
         vTaskDelay(pdMS_TO_TICKS(100));
     }
@@ -413,32 +406,38 @@ void mode_control_task(void *pvParameter)
     {
         if (isr_mode_update_flag == 1) // Update mode only if user pressed mode button
         {
-            switch (current_mode)
+            // Reset diodes
+            gpio_set_level(GREEN_LED_PIN, 0);
+            gpio_set_level(YELLOW_LED_PIN, 0);
+            gpio_set_level(RED_LED_PIN, 0);
+
+            if (xSemaphoreTake(xMutexIcons, portMAX_DELAY) == pdTRUE)
             {
-            case HOME: // Home mode - set home position and light green diode
-                set_target_position(home_position, sizeof(home_position));
-                gpio_set_level(GREEN_LED_PIN, 1);
-                gpio_set_level(YELLOW_LED_PIN, 0);
-                gpio_set_level(RED_LED_PIN, 0);
-                break;
+                switch (current_mode)
+                {
+                case HOME: // Home mode - set home position, light green diode and update icon
+                    set_target_position(home_position, sizeof(home_position));
+                    gpio_set_level(GREEN_LED_PIN, 1);
+                    memcpy(mode_icon, home_mode_icon_map, sizeof(mode_icon));
+                    break;
 
-            case MANUAL: // Manual mode - light yellow diode
-                gpio_set_level(GREEN_LED_PIN, 0);
-                gpio_set_level(YELLOW_LED_PIN, 1);
-                gpio_set_level(RED_LED_PIN, 0);
-                break;
+                case MANUAL: // Manual mode - light yellow diode and update icon
+                    gpio_set_level(YELLOW_LED_PIN, 1);
+                    memcpy(mode_icon, manual_mode_icon_map, sizeof(mode_icon));
+                    break;
 
-            case AUTO: // Automatic mode - light red diode
-                gpio_set_level(GREEN_LED_PIN, 0);
-                gpio_set_level(YELLOW_LED_PIN, 0);
-                gpio_set_level(RED_LED_PIN, 1);
-                break;
+                case AUTO: // Automatic mode - light red diode and update icon
+                    gpio_set_level(RED_LED_PIN, 1);
+                    memcpy(mode_icon, auto_mode_icon_map, sizeof(mode_icon));
+                    break;
 
-            default:
-                break;
+                default:
+                    break;
+                }
+
+                xSemaphoreGive(xMutexIcons);
+                isr_mode_update_flag = 0;
             }
-
-            isr_mode_update_flag = 0;
         }
         vTaskDelay(pdMS_TO_TICKS(50));
     }
@@ -516,6 +515,7 @@ void app_main(void)
 
     xMutexTargetPosition = xSemaphoreCreateMutex();         // Create mutex for target position
     xMutexPotentiometersPosition = xSemaphoreCreateMutex(); // Create mutex for potentiometers position
+    xMutexIcons = xSemaphoreCreateMutex();                  // Create mutex for icons arrays
 
     gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);                     // Allow per-pin GPIO interrupt handlers
     gpio_isr_handler_add(GRIPPER_BUTTON_PIN, isr_gripper_handler, NULL); // Gripper interrupt
