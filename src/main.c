@@ -453,21 +453,8 @@ void automatic_sequence_task(void *pvParameter)
             // Update position of links
             for (int i = 0; i < path_steps; i++)
             {
-                if (xSemaphoreTake(xMutexTargetPosition, portMAX_DELAY) == pdTRUE)
-                {
-                    for (int j = 0; j < LINKS_NUMBER; j++)
-                    {
-                        target_position[j] = work_path[i][j];
-                    }
-                    xSemaphoreGive(xMutexTargetPosition);
-                }
-
-                // If mode has changed in the meantime -> break the loop
-                if (current_mode != 2)
-                {
-                    set_target_position(home_position, sizeof(home_position));
-                    break;
-                }
+                // Set next path target
+                set_target_position(work_path[i], LINKS_NUMBER * sizeof(work_path[i][0]));
 
                 // Update position of gripper
                 if (work_path[i][LINKS_NUMBER] == 1)
@@ -478,9 +465,15 @@ void automatic_sequence_task(void *pvParameter)
                     gripper_open();
 
                 // Wait for servos to finish moving
-                vTaskDelay(100);
                 while (movement_flag == 1)
                 {
+                    vTaskDelay(100);
+                }
+
+                // If mode has changed in the meantime -> break the loop
+                if (current_mode != 2)
+                {
+                    break;
                 }
             }
         }
