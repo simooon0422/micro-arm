@@ -52,11 +52,13 @@ uint16_t mode_icon[MODE_ICON_WIDTH * MODE_ICON_HEIGHT];          // Array for st
 uint16_t gripper_icon[GRIPPER_ICON_WIDTH * GRIPPER_ICON_HEIGHT]; // Array for storing current gripper icon
 
 #ifdef WRITE_EEPROM_ON_START
-#define WRITE_PATH_STEPS 3                                 // Number of steps for sequence in automatic mode to write in EEPROM
+#define WRITE_PATH_STEPS 5                                 // Number of steps for sequence in automatic mode to write in EEPROM
 uint8_t write_path[WRITE_PATH_STEPS][LINKS_NUMBER + 1] = { // Array with automatic path to write to EEPROM
-    {90, 135, 30, 30},
-    {0, 135, 30, 30},
-    {90, 135, 30, 30}};
+    {90, 135, 30, 30, 0},
+    {0, 135, 30, 30, 0},
+    {0, 135, 30, 30, 1},
+    {90, 135, 30, 30, 1},
+    {90, 135, 30, 30, 0}};
 #endif
 
 SemaphoreHandle_t xMutexTargetPosition = NULL;         // Mutex for target position
@@ -305,12 +307,7 @@ void servo_control_task(void *pvParameter)
         {
             if (xSemaphoreTake(xMutexTargetPosition, (TickType_t)10) == pdTRUE)
             {
-                ESP_LOGI(SERVO_TAG, "Target position:");
-                for (int i = 0; i < LINKS_NUMBER; i++)
-                {
-                    ESP_LOGI(SERVO_TAG, "Servo %d: %d", i, target_position[i]);
-                }
-
+                ESP_LOGI(SERVO_TAG, "Target position: %d  %d  %d  %d", target_position[0], target_position[1], target_position[2], target_position[3]);
                 for (int i = 0; i < LINKS_NUMBER; i++)
                 {
                     move_step(i);
@@ -463,10 +460,13 @@ void automatic_sequence_task(void *pvParameter)
                 else
                     gripper_open();
 
+                // Wait for potential gripper movement and movement flag change
+                vTaskDelay(pdMS_TO_TICKS(500)); 
+
                 // Wait for servos to finish moving
                 while (movement_flag == 1)
                 {
-                    vTaskDelay(100);
+                    vTaskDelay(pdMS_TO_TICKS(100));
                 }
 
                 // If mode has changed in the meantime -> break the loop
@@ -477,7 +477,7 @@ void automatic_sequence_task(void *pvParameter)
             }
         }
         else
-            vTaskDelay(200);
+            vTaskDelay(pdMS_TO_TICKS(200));
     }
 }
 
@@ -492,7 +492,7 @@ void lcd_display_task(void *pvParameter)
         show_headers(display);                                            // Display headers on LCD
         show_positions(display);                                          // Display positions values on LCD
         lcd_send_buffer();                                                // Update screen with new buffer
-        vTaskDelay(10);
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 
