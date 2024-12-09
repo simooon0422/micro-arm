@@ -2,14 +2,17 @@
 
 // #define WRITE_EEPROM_ON_START // Uncomment if you want to modify automatic path in EEPROM on start
 
-#define GRIPPER_BUTTON_PIN GPIO_NUM_13 // Gripper control button pin
-#define MODE_BUTTON_PIN GPIO_NUM_12    // Mode control button pin
-#define GREEN_LED_PIN GPIO_NUM_4       // Greed diode pin
-#define YELLOW_LED_PIN GPIO_NUM_2      // Yellow diode pin
-#define RED_LED_PIN GPIO_NUM_15        // Red diode pin
+#define GRIPPER_BUTTON_PIN GPIO_NUM_13  // Gripper control button pin
+#define MODE_BUTTON_PIN GPIO_NUM_12     // Mode control button pin
+#define NEXT_BUTTON_PIN GPIO_NUM_36     // Teach mode next button pin
+#define PREVIOUS_BUTTON_PIN GPIO_NUM_34 // Teach mode previous button pin
+#define ENTER_BUTTON_PIN GPIO_NUM_39    // Teach mode enter button pin
+#define GREEN_LED_PIN GPIO_NUM_4        // Greed diode pin
+#define YELLOW_LED_PIN GPIO_NUM_2       // Yellow diode pin
+#define RED_LED_PIN GPIO_NUM_15         // Red diode pin
 
 #define GRIPPER_CHANNEL 4                // PCA9685 channel for gripper
-#define MODES_NUMBER 3                   // Number of arm's modes of working
+#define MODES_NUMBER 4                   // Number of arm's modes of working
 #define MAX_PATH_STEPS 10                // Maximum number of steps in automatic mode path
 #define DEBOUNCE_TIME pdMS_TO_TICKS(500) // Time for debouncing buttons in ms
 #define ESP_INTR_FLAG_DEFAULT 0          // Flags used to allocate the interrupt
@@ -32,7 +35,8 @@ typedef enum // Modes of working
 {
     HOME = 0,
     MANUAL = 1,
-    AUTO = 2
+    AUTO = 2,
+    TEACH = 3
 } Modes_t;
 
 volatile Modes_t current_mode = 0;      // 0 - Home mode, 1 - Manual mode, 2 - Automatic mode
@@ -91,6 +95,18 @@ void buttons_init()
     gpio_set_direction(MODE_BUTTON_PIN, GPIO_MODE_INPUT);
     gpio_set_pull_mode(MODE_BUTTON_PIN, GPIO_PULLUP_ONLY);
     gpio_set_intr_type(MODE_BUTTON_PIN, GPIO_INTR_NEGEDGE);
+
+    // Set up next button pin
+    gpio_reset_pin(NEXT_BUTTON_PIN);
+    gpio_set_direction(NEXT_BUTTON_PIN, GPIO_MODE_INPUT);
+
+    // Set up previous button pin
+    gpio_reset_pin(PREVIOUS_BUTTON_PIN);
+    gpio_set_direction(PREVIOUS_BUTTON_PIN, GPIO_MODE_INPUT);
+
+    // Set up enter button pin
+    gpio_reset_pin(ENTER_BUTTON_PIN);
+    gpio_set_direction(ENTER_BUTTON_PIN, GPIO_MODE_INPUT);
 }
 
 void diodes_init()
@@ -428,6 +444,12 @@ void mode_control_task(void *pvParameter)
                     memcpy(mode_icon, auto_mode_icon_map, sizeof(mode_icon));
                     break;
 
+                case TEACH: // Teaching mode - light all diodes
+                    gpio_set_level(GREEN_LED_PIN, 1);
+                    gpio_set_level(YELLOW_LED_PIN, 1);
+                    gpio_set_level(RED_LED_PIN, 1);
+                    break;
+
                 default:
                     break;
                 }
@@ -461,7 +483,7 @@ void automatic_sequence_task(void *pvParameter)
                     gripper_open();
 
                 // Wait for potential gripper movement and movement flag change
-                vTaskDelay(pdMS_TO_TICKS(500)); 
+                vTaskDelay(pdMS_TO_TICKS(500));
 
                 // Wait for servos to finish moving
                 while (movement_flag == 1)
@@ -494,6 +516,10 @@ void lcd_display_task(void *pvParameter)
         lcd_send_buffer();                                                // Update screen with new buffer
         vTaskDelay(pdMS_TO_TICKS(10));
     }
+}
+
+void teach_task(void *pvParameter)
+{
 }
 
 #ifndef TESTING_ENVIRONMENT

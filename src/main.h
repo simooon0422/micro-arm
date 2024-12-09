@@ -166,3 +166,8 @@ void position_control_task(void *pvParameter);
  * @brief Task for controlling LCD display.
  */
 void lcd_display_task(void *pvParameter);
+
+/**
+ * @brief Task for teaching robot new automatic path.
+ */
+void teach_task(void *pvParameter);
