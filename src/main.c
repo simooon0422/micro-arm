@@ -448,6 +448,7 @@ void mode_control_task(void *pvParameter)
                     gpio_set_level(GREEN_LED_PIN, 1);
                     gpio_set_level(YELLOW_LED_PIN, 1);
                     gpio_set_level(RED_LED_PIN, 1);
+                    memcpy(mode_icon, teach_mode_icon_map, sizeof(mode_icon));
                     break;
 
                 default:
