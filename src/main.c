@@ -39,11 +39,12 @@ typedef enum // Modes of working
     TEACH = 3
 } Modes_t;
 
-volatile Modes_t current_mode = 0;      // 0 - Home mode, 1 - Manual mode, 2 - Automatic mode
+volatile Modes_t current_mode = 0;      // 0 - Home mode, 1 - Manual mode, 2 - Automatic mode, 3 - Teaching mode
 volatile bool isr_mode_update_flag = 1; // 0 - no mode update required, 1 - mode update required
 TickType_t last_mode_time = 0;          // Last time of mode interrupt
 
 uint8_t path_steps = 0; // Number of path steps for automatic mode, default 0
+uint8_t teach_step = 0; // Current step in teaching mode, default 0
 
 uint8_t home_position[LINKS_NUMBER] = {90, 135, 30, 30};    // Angle values of servo home positions
 uint8_t current_position[LINKS_NUMBER] = {90, 135, 30, 30}; // Angle values of servo current positions
@@ -277,10 +278,33 @@ void show_headers(hagl_backend_t *display)
         hagl_put_text(display, header_text, 50 + (30 * i), 42, YELLOW, font6x9);
     }
 
-    // Display positions headers
-    hagl_put_text(display, L"TAR:", 10, 60, YELLOW, font6x9);  // Display target position header
-    hagl_put_text(display, L"CUR:", 10, 85, YELLOW, font6x9);  // Display current position header
-    hagl_put_text(display, L"POT:", 10, 110, YELLOW, font6x9); // Display potentiometers position header
+    switch (current_mode)
+    {
+    case HOME:
+    case MANUAL:
+    case AUTO:
+        // Display positions headers
+        hagl_put_text(display, L"TAR:", 10, 60, YELLOW, font6x9);  // Display target position header
+        hagl_put_text(display, L"CUR:", 10, 85, YELLOW, font6x9);  // Display current position header
+        hagl_put_text(display, L"POT:", 10, 110, YELLOW, font6x9); // Display potentiometers position header
+        break;
+    case TEACH:
+        wchar_t step[3] = L"  ";
+        wchar_t max_step[3] = L"  ";
+        get_text(step, teach_step);                                 // Convert teach step to wchar
+        get_text(max_step, MAX_PATH_STEPS);                         // Convert max step to wchar
+        hagl_put_text(display, L"POT:", 10, 60, YELLOW, font6x9);   // Display potentiometers position header
+        hagl_put_text(display, L"STEP:", 10, 85, YELLOW, font6x9);  // Display current path step header
+        hagl_put_text(display, step, 45, 85, YELLOW, font6x9);      // Display current path step
+        hagl_put_text(display, L"MAX:", 110, 85, YELLOW, font6x9);  // Display max number of steps header
+        hagl_put_text(display, max_step, 140, 85, YELLOW, font6x9); // Display max number of steps value
+        hagl_put_text(display, L"PREV", 10, 110, YELLOW, font6x9);  // Display previous step header
+        hagl_put_text(display, L"SAVE", 70, 110, YELLOW, font6x9);  // Display save step header
+        hagl_put_text(display, L"NEXT", 130, 110, YELLOW, font6x9); // Display next step header
+        break;
+    default:
+        break;
+    }
 }
 
 void show_position_array(hagl_backend_t *display, uint8_t arr[], uint8_t y0)
@@ -295,19 +319,36 @@ void show_position_array(hagl_backend_t *display, uint8_t arr[], uint8_t y0)
 
 void show_positions(hagl_backend_t *display)
 {
-    // Display target and current position
-    if (xSemaphoreTake(xMutexTargetPosition, portMAX_DELAY) == pdTRUE)
+    switch (current_mode)
     {
-        show_position_array(display, target_position, 60);
-        show_position_array(display, current_position, 85);
-        xSemaphoreGive(xMutexTargetPosition);
-    }
+    case HOME:
+    case MANUAL:
+    case AUTO:
+        // Display target and current position
+        if (xSemaphoreTake(xMutexTargetPosition, portMAX_DELAY) == pdTRUE)
+        {
+            show_position_array(display, target_position, 60);
+            show_position_array(display, current_position, 85);
+            xSemaphoreGive(xMutexTargetPosition);
+        }
 
-    // Display potentiometers position
-    if (xSemaphoreTake(xMutexPotentiometersPosition, portMAX_DELAY) == pdTRUE)
-    {
-        show_position_array(display, pot_readings, 110);
-        xSemaphoreGive(xMutexPotentiometersPosition);
+        // Display potentiometers position
+        if (xSemaphoreTake(xMutexPotentiometersPosition, portMAX_DELAY) == pdTRUE)
+        {
+            show_position_array(display, pot_readings, 110);
+            xSemaphoreGive(xMutexPotentiometersPosition);
+        }
+        break;
+    case TEACH:
+        // Display potentiometers position
+        if (xSemaphoreTake(xMutexPotentiometersPosition, portMAX_DELAY) == pdTRUE)
+        {
+            show_position_array(display, pot_readings, 60);
+            xSemaphoreGive(xMutexPotentiometersPosition);
+        }
+        break;
+    default:
+        break;
     }
 }
 
