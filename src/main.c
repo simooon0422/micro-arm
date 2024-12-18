@@ -43,8 +43,9 @@ volatile Modes_t current_mode = 0;      // 0 - Home mode, 1 - Manual mode, 2 - A
 volatile bool isr_mode_update_flag = 1; // 0 - no mode update required, 1 - mode update required
 TickType_t last_mode_time = 0;          // Last time of mode interrupt
 
-uint8_t path_steps = 0; // Number of path steps for automatic mode, default 0
-uint8_t teach_step = 0; // Current step in teaching mode, default 0
+uint8_t path_steps = 0;         // Number of path steps for automatic mode, default 0
+uint8_t teach_step = 0;         // Current step in teaching mode, default 0
+TickType_t last_teach_time = 0; // Last time of teach mode buttons
 
 uint8_t home_position[LINKS_NUMBER] = {90, 135, 30, 30};    // Angle values of servo home positions
 uint8_t current_position[LINKS_NUMBER] = {90, 135, 30, 30}; // Angle values of servo current positions
@@ -562,6 +563,37 @@ void lcd_display_task(void *pvParameter)
 
 void teach_task(void *pvParameter)
 {
+    while (1)
+    {
+        while (current_mode == TEACH)
+        {
+            if (xTaskGetTickCount() - last_teach_time < DEBOUNCE_TIME) // If debounce time hasn't passed don't execute buttons handling code
+            {
+                break;
+            }
+
+            if (gpio_get_level(PREVIOUS_BUTTON_PIN) == 0)
+            {
+                teach_step--;                          // Execute instructions for PREVIOUS_BUTTON
+                last_teach_time = xTaskGetTickCount(); // Update time of pressing button
+            }
+
+            if (gpio_get_level(ENTER_BUTTON_PIN) == 0)
+            {
+                teach_step += 2;                       // Execute instructions for ENTER_BUTTON
+                last_teach_time = xTaskGetTickCount(); // Update time of pressing button
+            }
+
+            if (gpio_get_level(NEXT_BUTTON_PIN) == 0)
+            {
+                teach_step++;                          // Execute instructions for NEXT_BUTTON
+                last_teach_time = xTaskGetTickCount(); // Update time of pressing button
+            }
+
+            vTaskDelay(pdMS_TO_TICKS(20));
+        }
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
 }
 
 #ifndef TESTING_ENVIRONMENT
@@ -596,5 +628,6 @@ void app_main(void)
     xTaskCreate(&mode_control_task, "mode_control_task", 2048, NULL, 4, NULL);               // Create task for mode control
     xTaskCreate(&automatic_sequence_task, "automatic_sequence_task", 2048, NULL, 3, NULL);   // Create task for automatic mode
     xTaskCreate(&lcd_display_task, "lcd_display_task", 2048, display, 3, NULL);              // Create task for display control
+    xTaskCreate(&teach_task, "teach_task", 2048, display, 2, NULL);                          // Create task for teach mode
 }
 #endif
