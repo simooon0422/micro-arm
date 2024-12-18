@@ -136,16 +136,34 @@ void show_headers(hagl_backend_t *display);
 /**
  * @brief Display single position array values.
  * @param display Hagl backend pointer.
+ * @param arr Array to display.
+ * @param arr_len Length of array.
+ * @param x0 Screen width starting point.
  * @param y0 Screen height of displayed values.
  * @param arr Array of positions to display.
  */
-void show_position_array(hagl_backend_t *display, uint8_t arr[], uint8_t y0);
+void show_position_array(hagl_backend_t *display, uint8_t arr[], uint8_t arr_len, uint8_t x0, uint8_t y0);
 
 /**
  * @brief Display all target, current and potentiometers position values on LCD screen.
  * @param display Hagl backend pointer.
  */
 void show_positions(hagl_backend_t *display);
+
+/**
+ * @brief Execute instructions for PREVIOUS_BUTTON.
+ */
+void handle_previous_button();
+
+/**
+ * @brief Execute instructions for NEXT_BUTTON.
+ */
+void handle_next_button();
+
+/**
+ * @brief Execute instructions for ENTER_BUTTON.
+ */
+void handle_enter_button();
 
 /**
  * @brief Task for reading values from control potentiometers.

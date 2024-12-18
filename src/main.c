@@ -292,29 +292,27 @@ void show_headers(hagl_backend_t *display)
     case TEACH:
         wchar_t step[3] = L"  ";
         wchar_t max_step[3] = L"  ";
-        get_text(step, teach_step);                                 // Convert teach step to wchar
-        get_text(max_step, MAX_PATH_STEPS);                         // Convert max step to wchar
-        hagl_put_text(display, L"POT:", 10, 60, YELLOW, font6x9);   // Display potentiometers position header
-        hagl_put_text(display, L"STEP:", 10, 85, YELLOW, font6x9);  // Display current path step header
-        hagl_put_text(display, step, 45, 85, YELLOW, font6x9);      // Display current path step
-        hagl_put_text(display, L"MAX:", 110, 85, YELLOW, font6x9);  // Display max number of steps header
-        hagl_put_text(display, max_step, 140, 85, YELLOW, font6x9); // Display max number of steps value
-        hagl_put_text(display, L"PREV", 10, 110, YELLOW, font6x9);  // Display previous step header
-        hagl_put_text(display, L"SAVE", 70, 110, YELLOW, font6x9);  // Display save step header
-        hagl_put_text(display, L"NEXT", 130, 110, YELLOW, font6x9); // Display next step header
+        get_text(step, teach_step);                                  // Convert teach step to wchar
+        get_text(max_step, MAX_PATH_STEPS);                          // Convert max step to wchar
+        hagl_put_text(display, L"POT:", 10, 60, YELLOW, font6x9);    // Display potentiometers position header
+        hagl_put_text(display, L"STEP:", 10, 85, YELLOW, font6x9);   // Display current path step header
+        hagl_put_text(display, step, 45, 85, YELLOW, font6x9);       // Display current path step
+        hagl_put_text(display, L"MAX:", 60, 85, YELLOW, font6x9);    // Display max number of steps header
+        hagl_put_text(display, max_step, 90, 85, YELLOW, font6x9);   // Display max number of steps value
+        hagl_put_text(display, L"SAVED:", 120, 85, YELLOW, font6x9); // Display saved position header
         break;
     default:
         break;
     }
 }
 
-void show_position_array(hagl_backend_t *display, uint8_t arr[], uint8_t y0)
+void show_position_array(hagl_backend_t *display, uint8_t arr[], uint8_t arr_len, uint8_t x0, uint8_t y0)
 {
-    for (int i = 0; i < LINKS_NUMBER; i++)
+    for (int i = 0; i < arr_len; i++)
     {
         wchar_t text[4] = L"   ";
         get_text(text, arr[i]);
-        hagl_put_text(display, text, 50 + (30 * i), y0, YELLOW, font6x9);
+        hagl_put_text(display, text, x0 + (30 * i), y0, YELLOW, font6x9);
     }
 }
 
@@ -328,15 +326,15 @@ void show_positions(hagl_backend_t *display)
         // Display target and current position
         if (xSemaphoreTake(xMutexTargetPosition, portMAX_DELAY) == pdTRUE)
         {
-            show_position_array(display, target_position, 60);
-            show_position_array(display, current_position, 85);
+            show_position_array(display, target_position, LINKS_NUMBER, 50, 60);
+            show_position_array(display, current_position, LINKS_NUMBER, 50, 85);
             xSemaphoreGive(xMutexTargetPosition);
         }
 
         // Display potentiometers position
         if (xSemaphoreTake(xMutexPotentiometersPosition, portMAX_DELAY) == pdTRUE)
         {
-            show_position_array(display, pot_readings, 110);
+            show_position_array(display, pot_readings, LINKS_NUMBER, 50, 110);
             xSemaphoreGive(xMutexPotentiometersPosition);
         }
         break;
@@ -344,12 +342,39 @@ void show_positions(hagl_backend_t *display)
         // Display potentiometers position
         if (xSemaphoreTake(xMutexPotentiometersPosition, portMAX_DELAY) == pdTRUE)
         {
-            show_position_array(display, pot_readings, 60);
+            show_position_array(display, pot_readings, LINKS_NUMBER, 50, 60);
+            show_position_array(display, work_path[teach_step], LINKS_NUMBER + 1, 20, 110);
             xSemaphoreGive(xMutexPotentiometersPosition);
         }
         break;
     default:
         break;
+    }
+}
+
+void handle_previous_button()
+{
+    if (teach_step > 0)
+    {
+        teach_step--; // Decrease current teaching step
+    }
+}
+
+void handle_next_button()
+{
+    if (teach_step < MAX_PATH_STEPS)
+    {
+        teach_step++; // Increase current teaching step
+    }
+}
+
+void handle_enter_button()
+{
+    if (xSemaphoreTake(xMutexPotentiometersPosition, portMAX_DELAY) == pdTRUE)
+    {
+        memcpy(work_path[teach_step], pot_readings, sizeof(pot_readings)); // Copy potentiometers positions to work path
+        work_path[teach_step][LINKS_NUMBER] = gripper_flag;                // Place gripper status on last position
+        xSemaphoreGive(xMutexPotentiometersPosition);
     }
 }
 
@@ -574,19 +599,19 @@ void teach_task(void *pvParameter)
 
             if (gpio_get_level(PREVIOUS_BUTTON_PIN) == 0)
             {
-                teach_step--;                          // Execute instructions for PREVIOUS_BUTTON
+                handle_previous_button();              // Execute instructions for PREVIOUS_BUTTON
                 last_teach_time = xTaskGetTickCount(); // Update time of pressing button
             }
 
             if (gpio_get_level(ENTER_BUTTON_PIN) == 0)
             {
-                teach_step += 2;                       // Execute instructions for ENTER_BUTTON
+                handle_enter_button();                 // Execute instructions for ENTER_BUTTON
                 last_teach_time = xTaskGetTickCount(); // Update time of pressing button
             }
 
             if (gpio_get_level(NEXT_BUTTON_PIN) == 0)
             {
-                teach_step++;                          // Execute instructions for NEXT_BUTTON
+                handle_next_button();                  // Execute instructions for NEXT_BUTTON
                 last_teach_time = xTaskGetTickCount(); // Update time of pressing button
             }
 
