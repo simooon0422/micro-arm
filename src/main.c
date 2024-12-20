@@ -2,14 +2,14 @@
 
 // #define WRITE_EEPROM_ON_START // Uncomment if you want to modify automatic path in EEPROM on start
 
-#define GRIPPER_BUTTON_PIN GPIO_NUM_13  // Gripper control button pin
-#define MODE_BUTTON_PIN GPIO_NUM_12     // Mode control button pin
-#define NEXT_BUTTON_PIN GPIO_NUM_36     // Teach mode next button pin
-#define PREVIOUS_BUTTON_PIN GPIO_NUM_34 // Teach mode previous button pin
-#define ENTER_BUTTON_PIN GPIO_NUM_39    // Teach mode enter button pin
-#define GREEN_LED_PIN GPIO_NUM_4        // Greed diode pin
-#define YELLOW_LED_PIN GPIO_NUM_2       // Yellow diode pin
-#define RED_LED_PIN GPIO_NUM_15         // Red diode pin
+#define GRIPPER_BUTTON_PIN GPIO_NUM_13 // Gripper control button pin
+#define MODE_BUTTON_PIN GPIO_NUM_12    // Mode control button pin
+#define RIGHT_BUTTON_PIN GPIO_NUM_36   // Teach mode right button pin
+#define LEFT_BUTTON_PIN GPIO_NUM_34    // Teach mode left button pin
+#define MIDDLE_BUTTON_PIN GPIO_NUM_39  // Teach mode middle button pin
+#define GREEN_LED_PIN GPIO_NUM_4       // Greed diode pin
+#define YELLOW_LED_PIN GPIO_NUM_2      // Yellow diode pin
+#define RED_LED_PIN GPIO_NUM_15        // Red diode pin
 
 #define GRIPPER_CHANNEL 4                // PCA9685 channel for gripper
 #define MODES_NUMBER 4                   // Number of arm's modes of working
@@ -28,6 +28,7 @@ static const char *GRIPPER_TAG = "Gripper";    // Tag for gripper logging
 
 bool movement_flag = 0;                    // 0 - no movement required, 1 - movement required
 bool gripper_flag = 1;                     // 0 - gripper open, 1 - gripper closed
+bool confirmation_flag = 0;                // 0 - display normal screen for teaching mode, 1 - display save confirmation screen for teaching mode
 volatile bool isr_gripper_update_flag = 1; // 0 - gripper position update not required, 1 - gripper position update required
 TickType_t last_gripper_time = 0;          // Last time of gripper interrupt
 
@@ -43,9 +44,10 @@ volatile Modes_t current_mode = 0;      // 0 - Home mode, 1 - Manual mode, 2 - A
 volatile bool isr_mode_update_flag = 1; // 0 - no mode update required, 1 - mode update required
 TickType_t last_mode_time = 0;          // Last time of mode interrupt
 
-uint8_t path_steps = 0;         // Number of path steps for automatic mode, default 0
-uint8_t teach_step = 0;         // Current step in teaching mode, default 0
-TickType_t last_teach_time = 0; // Last time of teach mode buttons
+uint8_t path_steps = 0;            // Number of path steps for automatic mode, default 0
+uint8_t teach_step = 0;            // Current step in teaching mode, 1 - First step
+uint8_t middle_button_counter = 0; // Counter for measuring middle button push time
+TickType_t last_teach_time = 0;    // Last time of teach mode buttons
 
 uint8_t home_position[LINKS_NUMBER] = {90, 135, 30, 30};    // Angle values of servo home positions
 uint8_t current_position[LINKS_NUMBER] = {90, 135, 30, 30}; // Angle values of servo current positions
@@ -99,16 +101,16 @@ void buttons_init()
     gpio_set_intr_type(MODE_BUTTON_PIN, GPIO_INTR_NEGEDGE);
 
     // Set up next button pin
-    gpio_reset_pin(NEXT_BUTTON_PIN);
-    gpio_set_direction(NEXT_BUTTON_PIN, GPIO_MODE_INPUT);
+    gpio_reset_pin(RIGHT_BUTTON_PIN);
+    gpio_set_direction(RIGHT_BUTTON_PIN, GPIO_MODE_INPUT);
 
     // Set up previous button pin
-    gpio_reset_pin(PREVIOUS_BUTTON_PIN);
-    gpio_set_direction(PREVIOUS_BUTTON_PIN, GPIO_MODE_INPUT);
+    gpio_reset_pin(LEFT_BUTTON_PIN);
+    gpio_set_direction(LEFT_BUTTON_PIN, GPIO_MODE_INPUT);
 
     // Set up enter button pin
-    gpio_reset_pin(ENTER_BUTTON_PIN);
-    gpio_set_direction(ENTER_BUTTON_PIN, GPIO_MODE_INPUT);
+    gpio_reset_pin(MIDDLE_BUTTON_PIN);
+    gpio_set_direction(MIDDLE_BUTTON_PIN, GPIO_MODE_INPUT);
 }
 
 void diodes_init()
@@ -290,9 +292,17 @@ void show_headers(hagl_backend_t *display)
         hagl_put_text(display, L"POT:", 10, 110, YELLOW, font6x9); // Display potentiometers position header
         break;
     case TEACH:
+        if (confirmation_flag == 1)
+        {
+            hagl_put_text(display, L"Do you want to save path?", 5, 70, YELLOW, font6x9); // Display confirmation message
+            hagl_put_text(display, L"NO", 30, 100, YELLOW, font6x9);
+            hagl_put_text(display, L"YES", 120, 100, YELLOW, font6x9);
+            break;
+        }
+
         wchar_t step[3] = L"  ";
         wchar_t max_step[3] = L"  ";
-        get_text(step, teach_step);                                  // Convert teach step to wchar
+        get_text(step, teach_step + 1);                              // Convert teach step to wchar (+1 to display steps 1-10 format instead of 0-9)
         get_text(max_step, MAX_PATH_STEPS);                          // Convert max step to wchar
         hagl_put_text(display, L"POT:", 10, 60, YELLOW, font6x9);    // Display potentiometers position header
         hagl_put_text(display, L"STEP:", 10, 85, YELLOW, font6x9);   // Display current path step header
@@ -339,11 +349,23 @@ void show_positions(hagl_backend_t *display)
         }
         break;
     case TEACH:
-        // Display potentiometers position
+        // Display potentiometers position if not on saving screen
+        if (confirmation_flag == 1)
+        {
+            break;
+        }
+
         if (xSemaphoreTake(xMutexPotentiometersPosition, portMAX_DELAY) == pdTRUE)
         {
             show_position_array(display, pot_readings, LINKS_NUMBER, 50, 60);
-            show_position_array(display, work_path[teach_step], LINKS_NUMBER + 1, 20, 110);
+            show_position_array(display, work_path[teach_step], LINKS_NUMBER, 50, 110);
+            if (work_path[teach_step][LINKS_NUMBER] == 1)
+            {
+                hagl_put_text(display, L"closed", 10, 110, YELLOW, font6x9);
+            }
+            else
+                hagl_put_text(display, L"open", 10, 110, YELLOW, font6x9);
+
             xSemaphoreGive(xMutexPotentiometersPosition);
         }
         break;
@@ -352,24 +374,49 @@ void show_positions(hagl_backend_t *display)
     }
 }
 
-void handle_previous_button()
+void handle_left_button()
 {
+    if (confirmation_flag == 1)
+    {
+        confirmation_flag = 0; // Reset confirmation flag to go back to normal teaching mode screen
+        return;
+    }
+
     if (teach_step > 0)
     {
         teach_step--; // Decrease current teaching step
     }
 }
 
-void handle_next_button()
+void handle_right_button()
 {
-    if (teach_step < MAX_PATH_STEPS)
+    if (confirmation_flag == 1)
+    {
+        write_auto_path(work_path, teach_step + 1); // Write new path to EEPROM
+        confirmation_flag = 0;                      // Reset confirmation flag to go back to normal teaching mode screen
+        return;
+    }
+
+    if (teach_step < MAX_PATH_STEPS - 1)
     {
         teach_step++; // Increase current teaching step
     }
 }
 
-void handle_enter_button()
+void handle_middle_button()
 {
+    if (middle_button_counter >= 4)
+    {
+        confirmation_flag = 1; // Set confirmation flag to display confirmation screen
+        return;
+    }
+
+    // Execute further code only if button isn't kept pressed
+    if (middle_button_counter > 1)
+    {
+        return;
+    }
+
     if (xSemaphoreTake(xMutexPotentiometersPosition, portMAX_DELAY) == pdTRUE)
     {
         memcpy(work_path[teach_step], pot_readings, sizeof(pot_readings)); // Copy potentiometers positions to work path
@@ -597,21 +644,26 @@ void teach_task(void *pvParameter)
                 break;
             }
 
-            if (gpio_get_level(PREVIOUS_BUTTON_PIN) == 0)
+            if (gpio_get_level(LEFT_BUTTON_PIN) == 0)
             {
-                handle_previous_button();              // Execute instructions for PREVIOUS_BUTTON
+                handle_left_button();                  // Execute instructions for LEFT_BUTTON
                 last_teach_time = xTaskGetTickCount(); // Update time of pressing button
             }
 
-            if (gpio_get_level(ENTER_BUTTON_PIN) == 0)
+            if (gpio_get_level(MIDDLE_BUTTON_PIN) == 0)
             {
-                handle_enter_button();                 // Execute instructions for ENTER_BUTTON
+                middle_button_counter++;               // Increase counter
+                handle_middle_button();                // Execute instructions for MIDDLE_BUTTON
                 last_teach_time = xTaskGetTickCount(); // Update time of pressing button
             }
-
-            if (gpio_get_level(NEXT_BUTTON_PIN) == 0)
+            else if (middle_button_counter > 0)
             {
-                handle_next_button();                  // Execute instructions for NEXT_BUTTON
+                middle_button_counter = 0; // Reset counter if button is not pressed
+            }
+
+            if (gpio_get_level(RIGHT_BUTTON_PIN) == 0)
+            {
+                handle_right_button();                 // Execute instructions for RIGHT_BUTTON
                 last_teach_time = xTaskGetTickCount(); // Update time of pressing button
             }
 

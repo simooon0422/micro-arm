@@ -151,19 +151,19 @@ void show_position_array(hagl_backend_t *display, uint8_t arr[], uint8_t arr_len
 void show_positions(hagl_backend_t *display);
 
 /**
- * @brief Execute instructions for PREVIOUS_BUTTON.
+ * @brief Execute instructions for LEFT_BUTTON.
  */
-void handle_previous_button();
+void handle_left_button();
 
 /**
- * @brief Execute instructions for NEXT_BUTTON.
+ * @brief Execute instructions for RIGHT_BUTTON.
  */
-void handle_next_button();
+void handle_right_button();
 
 /**
- * @brief Execute instructions for ENTER_BUTTON.
+ * @brief Execute instructions for MIDDLE_BUTTON.
  */
-void handle_enter_button();
+void handle_middle_button();
 
 /**
  * @brief Task for reading values from control potentiometers.
