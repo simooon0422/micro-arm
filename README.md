@@ -19,8 +19,8 @@ The project constist of 2 separate environments for testing and for executing. F
 ## Roadmap
 
 - Add diodes indicating current mode - done 31.10.2024
-- Add mode for teaching new path
 - Add LCD display - done 4.12.2024
+- Add mode for teaching new path - done 20.12.2024
 - Create custom PCB
 - Create 3D printed case for control panel
 
