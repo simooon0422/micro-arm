@@ -466,7 +466,7 @@ void read_potentiometers_task(void *pvParameter)
             xSemaphoreGive(xMutexPotentiometersPosition);
 
             // Update target position only in mode 1
-            if (current_mode == 1)
+            if (current_mode == MANUAL || current_mode == TEACH)
             {
                 set_target_position(pot_readings, sizeof(pot_readings));
             }
