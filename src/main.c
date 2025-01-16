@@ -1,15 +1,15 @@
 #include "main.h"
 
-// #define WRITE_EEPROM_ON_START // Uncomment if you want to modify automatic path in EEPROM on start
+#define WRITE_EEPROM_ON_START // Uncomment if you want to modify automatic path in EEPROM on start
 
-#define GRIPPER_BUTTON_PIN GPIO_NUM_13 // Gripper control button pin
-#define MODE_BUTTON_PIN GPIO_NUM_12    // Mode control button pin
-#define RIGHT_BUTTON_PIN GPIO_NUM_36   // Teach mode right button pin
-#define LEFT_BUTTON_PIN GPIO_NUM_34    // Teach mode left button pin
+#define GRIPPER_BUTTON_PIN GPIO_NUM_34 // Gripper control button pin
+#define MODE_BUTTON_PIN GPIO_NUM_36    // Mode control button pin
+#define RIGHT_BUTTON_PIN GPIO_NUM_12   // Teach mode right button pin
+#define LEFT_BUTTON_PIN GPIO_NUM_13    // Teach mode left button pin
 #define MIDDLE_BUTTON_PIN GPIO_NUM_39  // Teach mode middle button pin
-#define GREEN_LED_PIN GPIO_NUM_4       // Greed diode pin
+#define GREEN_LED_PIN GPIO_NUM_15       // Greed diode pin
 #define YELLOW_LED_PIN GPIO_NUM_2      // Yellow diode pin
-#define RED_LED_PIN GPIO_NUM_15        // Red diode pin
+#define RED_LED_PIN GPIO_NUM_4        // Red diode pin
 
 #define GRIPPER_CHANNEL 4                // PCA9685 channel for gripper
 #define MODES_NUMBER 4                   // Number of arm's modes of working
@@ -471,7 +471,7 @@ void read_potentiometers_task(void *pvParameter)
                 set_target_position(pot_readings, sizeof(pot_readings));
             }
 
-            ESP_LOGI(POT_TAG, "Readings: %d, %d, %d, %d", pot_readings[0], pot_readings[1], pot_readings[2], pot_readings[3]); // Log potentiometers readings
+            // ESP_LOGI(POT_TAG, "Readings: %d, %d, %d, %d", pot_readings[0], pot_readings[1], pot_readings[2], pot_readings[3]); // Log potentiometers readings
         }
         vTaskDelay(pdMS_TO_TICKS(100));
     }
@@ -698,7 +698,7 @@ void app_main(void)
     gpio_isr_handler_add(GRIPPER_BUTTON_PIN, isr_gripper_handler, NULL); // Gripper interrupt
     gpio_isr_handler_add(MODE_BUTTON_PIN, isr_mode_handler, NULL);       // Mode change interrupt
 
-    xTaskCreate(&servo_control_task, "servo_control_task", 2048, NULL, 2, NULL);             // Create task for servo control
+    xTaskCreate(&servo_control_task, "servo_control_task", 4096, NULL, 2, NULL);             // Create task for servo control
     xTaskCreate(&read_potentiometers_task, "read_potentiometers_task", 4096, NULL, 3, NULL); // Create task for reading potentiometers values
     xTaskCreate(&position_control_task, "position_control_task", 2048, NULL, 4, NULL);       // Create task for position control
     xTaskCreate(&gripper_control_task, "gripper_control_task", 2048, NULL, 1, NULL);         // Create task for gripper control

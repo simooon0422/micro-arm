@@ -1,8 +1,8 @@
 #include "cd4051_analog.h"
 
-#define SELECT_A GPIO_NUM_32 // Select A pin number
+#define SELECT_A GPIO_NUM_25 // Select A pin number
 #define SELECT_B GPIO_NUM_33 // Select B pin number
-#define SELECT_C GPIO_NUM_25 // Select C pin number
+#define SELECT_C GPIO_NUM_32 // Select C pin number
 #define INHIBIT GPIO_NUM_26  // Inhibit pin number
 
 #define COM ADC_CHANNEL_7         // GPIO35 -> ADC1_CHANNEL_7
