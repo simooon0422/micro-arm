@@ -7,9 +7,9 @@
 #define RIGHT_BUTTON_PIN GPIO_NUM_12   // Teach mode right button pin
 #define LEFT_BUTTON_PIN GPIO_NUM_13    // Teach mode left button pin
 #define MIDDLE_BUTTON_PIN GPIO_NUM_39  // Teach mode middle button pin
-#define GREEN_LED_PIN GPIO_NUM_15       // Greed diode pin
+#define GREEN_LED_PIN GPIO_NUM_15      // Greed diode pin
 #define YELLOW_LED_PIN GPIO_NUM_2      // Yellow diode pin
-#define RED_LED_PIN GPIO_NUM_4        // Red diode pin
+#define RED_LED_PIN GPIO_NUM_4         // Red diode pin
 
 #define GRIPPER_CHANNEL 4                // PCA9685 channel for gripper
 #define MODES_NUMBER 4                   // Number of arm's modes of working
@@ -21,6 +21,8 @@
 #define MODE_ICON_HEIGHT 40    // Height od mode icon in pixels
 #define GRIPPER_ICON_WIDTH 60  // Width od gripper icon in pixels
 #define GRIPPER_ICON_HEIGHT 40 // Height od gripper icon in pixels
+
+#define MEDIAN_ARRAY_SIZE 25 // Size of array for calculating median of potentiometers readings
 
 static const char *SERVO_TAG = "ServoControl"; // Tag for servo logging
 static const char *POT_TAG = "Potentiometers"; // Tag for potentiometers logging
@@ -84,6 +86,28 @@ int map(int x, int in_min, int in_max, int out_min, int out_max)
         x = in_max; // set given value to maximum if it was above maximum
     }
     return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min; // return mapped value
+}
+
+void bubble_sort(uint8_t arr[], uint8_t arr_size)
+{
+    for (size_t i = 0; i < arr_size - 1; i++)
+    {
+        for (size_t j = 0; j < arr_size - i - 1; j++)
+        {
+            if (arr[j] > arr[j + 1])
+            {
+                uint8_t tmp = arr[j];
+                arr[j] = arr[j + 1];
+                arr[j + 1] = tmp;
+            }
+        }
+    }
+}
+
+uint8_t get_median(uint8_t arr[], uint8_t arr_size)
+{
+    bubble_sort(arr, arr_size);
+    return arr[arr_size/2];
 }
 
 void buttons_init()
@@ -459,9 +483,15 @@ void read_potentiometers_task(void *pvParameter)
         // Read and map analog values
         if (xSemaphoreTake(xMutexPotentiometersPosition, portMAX_DELAY) == pdTRUE)
         {
+            uint8_t tmp_readings[MEDIAN_ARRAY_SIZE] = {0};
             for (int i = 0; i < LINKS_NUMBER; i++)
             {
-                pot_readings[i] = 10 * map(cd4051_read_channel(i), 0, 4095, 0, 18);
+                for (int j = 0; j < MEDIAN_ARRAY_SIZE; j++)
+                {
+                    tmp_readings[j] = 10 * map(cd4051_read_channel(i), 0, 4095, 0, 18);
+                }
+
+                pot_readings[i] = (180 - get_median(tmp_readings, MEDIAN_ARRAY_SIZE)); // Store calculated value with inverted direction of turning potentiometers
             }
             xSemaphoreGive(xMutexPotentiometersPosition);
 

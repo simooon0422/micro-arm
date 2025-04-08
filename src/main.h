@@ -23,13 +23,28 @@
 /**
  * @brief Map value to given scope.
  * @param x Value to map.
- * @param in_min Minimum input number
+ * @param in_min Minimum input number.
  * @param in_max Maximum input number.
  * @param out_min Minimum output number.
  * @param out_max Maximum output number.
  * @return Mapped value.
  */
 int map(int, int in_min, int in_max, int out_min, int out_max);
+
+/**
+ * @brief Sort array.
+ * @param arr Array to sort.
+ * @param arr_size Size of array to sort.
+ */
+void bubble_sort(uint8_t arr[], uint8_t arr_size);
+
+/**
+ * @brief Get median from array.
+ * @param arr Array with values to get median from.
+ * @param arr_size Size of array.
+ * @return Median of values in the array.
+ */
+uint8_t get_median(uint8_t arr[], uint8_t arr_size);
 
 /**
  * @brief Initialize pins for buttons.
@@ -54,7 +69,7 @@ void gripper_close();
 /**
  * @brief Modify target positions with new array of positions.
  * @param new_target Array with new positions.
- * @param new_target_size Size of the new array
+ * @param new_target_size Size of the new array.
  */
 void set_target_position(uint8_t new_target[LINKS_NUMBER], uint8_t new_target_size);
 
@@ -93,7 +108,7 @@ void write_auto_path(uint8_t arr[][LINKS_NUMBER + 1], uint8_t steps_n);
 /**
  * @brief Read path for automatic mode from EEPROM.
  * @param arr Array to store readings from EEPROM.
- * @param steps_n Pointer to variable to store number of path steps
+ * @param steps_n Pointer to variable to store number of path steps.
  */
 void read_auto_path(uint8_t arr[][LINKS_NUMBER + 1], uint8_t *steps_n);
 
@@ -123,13 +138,13 @@ void get_text(wchar_t text_arr[], uint8_t x);
 
 /**
  * @brief Display icons on LCD screen.
- * @param display Hagl backend pointer
+ * @param display Hagl backend pointer.
  */
 void show_icons(hagl_backend_t *display);
 
 /**
  * @brief Display headers for values on LCD screen.
- * @param display Hagl backend pointer
+ * @param display Hagl backend pointer.
  */
 void show_headers(hagl_backend_t *display);
 
